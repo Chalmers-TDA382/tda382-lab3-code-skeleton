@@ -1,3 +1,4 @@
+% Top level module
 -module(cchat).
 
 -export([start/0,server/0,gui_interface/0,start2/0]).
