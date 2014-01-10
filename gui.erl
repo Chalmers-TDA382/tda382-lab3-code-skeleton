@@ -92,7 +92,9 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
              St = #state{ parent = Panel, client = ClientName }) ->
 
     clear_text(with_label(ClientName, ?CMDLINE)),
-    case lexgrm:parse_cmd(Item) of 
+    Cmd = lexgrm:parse_cmd(Item),  
+    trace(["Command:", Cmd]), 
+    case Cmd  of 
 
          %% Connecting to the server
          {connect, Server} -> 
@@ -141,7 +143,7 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
             end ;
 
          %% Who I am
-         whoiam -> Result = catch_fatal(ClientName, Panel, fun () -> request(ClientName, whoiam)  end ),
+         whoiam -> Result = catch_fatal(ClientName, Panel, fun () -> request(ClientName, whoiam)  end),
                    case Result of 
                         error -> ok ;
                         Nick  -> write_channel(with_label(ClientName, ?SYSTEM), "* "++"You are "++Nick) 
