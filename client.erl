@@ -1,5 +1,5 @@
 -module(client).
--export([loop/2, initial_state/1]).
+-export([loop/2, initial_state/2]).
 
 -include_lib("./defs.hrl").
 
@@ -12,8 +12,8 @@ loop(St, {connect, _Server}) ->
 %%%%%%%%%%%%%%%
 %%%% Disconnect
 %%%%%%%%%%%%%%%
-loop(St, disconnect) ->         
-     {ok, St} ; 
+loop(St, disconnect) ->
+     {ok, St} ;
 
 %%%%%%%%%%%%%%
 %%% Join
@@ -24,20 +24,20 @@ loop(St,{join,_Channel}) ->
 %%%%%%%%%%%%%%%
 %%%% Leave
 %%%%%%%%%%%%%%%
-loop(St, {leave, _Channel}) -> 
-     {ok, St} ; 
+loop(St, {leave, _Channel}) ->
+     {ok, St} ;
 
 %%%%%%%%%%%%%%%%%%%%%
 %%% Sending messages
 %%%%%%%%%%%%%%%%%%%%%
-loop(St, {msg_from_GUI, _Channel, _Msg}) ->            
-     {ok, St} ; 
+loop(St, {msg_from_GUI, _Channel, _Msg}) ->
+     {ok, St} ;
 
 
 %%%%%%%%%%%%%%
-%%% WhoIam 
+%%% WhoIam
 %%%%%%%%%%%%%%
-loop(St, whoiam) -> 
+loop(St, whoiam) ->
     {"User01", St} ;
 
 %%%%%%%%%%
@@ -47,7 +47,7 @@ loop(St,{nick,_Nick}) ->
     {ok, St} ;
 
 %%%%%%%%%%%%%
-%%% Debug  
+%%% Debug
 %%%%%%%%%%%%%
 loop(St, debug) ->
     {St, St} ;
@@ -56,17 +56,17 @@ loop(St, debug) ->
 %%%% Incoming message
 %%%%%%%%%%%%%%%%%%%%%
 loop(St = #cl_st { gui = GUIName }, _MsgFromClient) ->
-    {Channel, Name, Msg} = decompose_msg(_MsgFromClient),             
-    gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}), 
+    {Channel, Name, Msg} = decompose_msg(_MsgFromClient),
+    gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
     {ok, St}.
 
 
-% This function will take a message from the client and 
-% decomposed in the parts needed to tell the GUI to display 
-% it in the right chat room. 
+% This function will take a message from the client and
+% decomposed in the parts needed to tell the GUI to display
+% it in the right chat room.
 decompose_msg(_MsgFromClient) ->
     {"", "", ""}.
 
 
-initial_state(GUIName) ->
+initial_state(Nick, GUIName) ->
     #cl_st { gui = GUIName }.
