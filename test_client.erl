@@ -277,30 +277,31 @@ write_receive_2_test() ->
     ok.
 
 % Changing nick
-change_nick_test() ->
-    init("change_nick"),
-    Channel = new_channel(),
+% Moved to Lab 4
+% change_nick_test() ->
+%     init("change_nick"),
+%     Channel = new_channel(),
 
-    % Client 1
-    {_Pid1, _Nick1, ClientAtom1} = new_client_connect(),
-    join_channel(ClientAtom1, Channel),
+%     % Client 1
+%     {_Pid1, _Nick1, ClientAtom1} = new_client_connect(),
+%     join_channel(ClientAtom1, Channel),
 
-    % Client 2
-    {_Pid2, _Nick2, ClientAtom2} = new_client_connect(true),
-    join_channel(ClientAtom2, Channel),
+%     % Client 2
+%     {_Pid2, _Nick2, ClientAtom2} = new_client_connect(true),
+%     join_channel(ClientAtom2, Channel),
 
-    % Change nick of 1
-    NewNick = find_unique_name("user_"),
-    change_nick(ClientAtom1, NewNick),
+%     % Change nick of 1
+%     NewNick = find_unique_name("user_"),
+%     change_nick(ClientAtom1, NewNick),
 
-    % Client 1 writes to channel
-    % Make sure prompt in 2 reflects correct name
-    Message = find_unique_name("message_"),
-    send_message(ClientAtom1, Channel, Message),
-    receive_message(Channel, NewNick, Message),
+%     % Client 1 writes to channel
+%     % Make sure prompt in 2 reflects correct name
+%     Message = find_unique_name("message_"),
+%     send_message(ClientAtom1, Channel, Message),
+%     receive_message(Channel, NewNick, Message),
 
-    % no_more_messages(),
-    ok.
+%     % no_more_messages(),
+%     ok.
 
 % --- Bad unit tests ---------------------------------------------------------
 
@@ -379,21 +380,22 @@ leave_not_joined_test() ->
     assert_error(atom_to_list(ClientAtom2)++" leaving "++Channel, Result2, user_not_joined).
 
 % Trying to take a nick which is taken
-nick_taken_test() ->
-    init("nick_taken"),
-    Channel = new_channel(),
+% Moved to Lab 4
+% nick_taken_test() ->
+%     init("nick_taken"),
+%     Channel = new_channel(),
 
-    % Client 1
-    {_Pid1, _Nick1, ClientAtom1} = new_client_connect(),
-    join_channel(ClientAtom1, Channel),
+%     % Client 1
+%     {_Pid1, _Nick1, ClientAtom1} = new_client_connect(),
+%     join_channel(ClientAtom1, Channel),
 
-    % Client 2
-    {_Pid2, Nick2, ClientAtom2} = new_client_connect(),
-    join_channel(ClientAtom2, Channel),
+%     % Client 2
+%     {_Pid2, Nick2, ClientAtom2} = new_client_connect(),
+%     join_channel(ClientAtom2, Channel),
 
-    % Change nick of 1 to 2
-    Result = genserver:request(ClientAtom1,{nick,Nick2}),
-    assert_error(atom_to_list(ClientAtom1)++" changing nick to "++Nick2, Result, nick_taken).
+%     % Change nick of 1 to 2
+%     Result = genserver:request(ClientAtom1,{nick,Nick2}),
+%     assert_error(atom_to_list(ClientAtom1)++" changing nick to "++Nick2, Result, nick_taken).
 
 % --- Performance unit tests -------------------------------------------------
 
