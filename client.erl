@@ -38,7 +38,7 @@ loop(St, {msg_from_GUI, _Channel, _Msg}) ->
 %%% WhoIam
 %%%%%%%%%%%%%%
 loop(St, whoiam) ->
-    {"User01", St} ;
+    {"user01", St} ;
 
 %%%%%%%%%%
 %%% Nick
