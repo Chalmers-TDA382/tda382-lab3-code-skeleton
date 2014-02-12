@@ -2,16 +2,16 @@
 
 -export([start/0, init/1, terminate/2,  code_change/3,
 	 handle_info/2, handle_call/3, handle_cast/2, handle_event/2]).
-
+% -compile(export_all).
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
 
 %% File with records definitions to be used as state for the client
 -include_lib("./defs.hrl").
 
--define(SYSTEM, "System").
--define(CMDLINE, "cmdline").
--define(NOTEBOOK, "notebook").
+-define(SYSTEM, 0).
+-define(CMDLINE, 1).
+-define(NOTEBOOK, 2).
 -define(MAX_CONNECTIONS, 100000).
 
 
@@ -28,9 +28,9 @@
 	{
 	  parent,
           client,
-          gui
+          gui,
+          clientid % unique part of name, as integer
 	 }).
-
 
 start() ->
     Server = wx:new(),
@@ -42,9 +42,10 @@ init(Server) ->
                      do_init(Server) end ).
 
 do_init(Server) ->
+
     % It creates a unique name for the client and gui processes
-    ClientName = find_unique_name("client_", ?MAX_CONNECTIONS),
-    GUIName    = find_unique_name("gui_", ?MAX_CONNECTIONS),
+    {ClientName, ClientID} = find_unique_name("client_", ?MAX_CONNECTIONS),
+    {GUIName,_ }           = find_unique_name("gui_", ?MAX_CONNECTIONS),
 
     % If any of the name choosen above are taken at this point, everything crashes!
     register(to_atom(GUIName), self()),
@@ -56,14 +57,17 @@ do_init(Server) ->
     Parent = Frame,
     Panel = wxPanel:new(Parent, []),
 
+
     %% Widgets: command line and system tab
     Cmd  = wxTextCtrl:new(Panel, -1, [{value, ""},
  				     {style, ?wxTE_PROCESS_ENTER}]),
-    label(ClientName, Cmd, ?CMDLINE),
+    label(ClientID, ?CMDLINE, Cmd),
+
     Ntbk = wxAuiNotebook:new(Panel,[{style,?wxAUI_NB_DEFAULT_STYLE}]),
-    label(ClientName, Ntbk, ?NOTEBOOK),
-    Tab = create_tab(ClientName, ?SYSTEM, "Welcome to CCHAT v. 0.1\n"),
-    label(ClientName, Tab, ?SYSTEM),
+    label(ClientID, ?NOTEBOOK, Ntbk),
+
+    Tab = create_tab(ClientName, "System", "Welcome to CCHAT v. 0.1\n"),
+    label(ClientID, ?SYSTEM, Tab),
 
     %% Sizers
     MainSizer = wxBoxSizer:new(?wxVERTICAL),
@@ -77,19 +81,19 @@ do_init(Server) ->
     focus(with_label(ClientName, ?CMDLINE)),
 
     wxTextCtrl:connect(Cmd, command_text_enter),
-    %wxAuiNotebook:connect(Ntbk, command_auinotebook_page_close),
+
     wxAuiNotebook:connect(Ntbk, command_auinotebook_button),
 
     trace(["Client:", ClientName]),
     trace(["GUI:", GUIName]),
 
-    {Panel, #state{parent=Panel, client=ClientName, gui=GUIName}}.
+    {Panel, #state{parent=Panel, client=ClientName, clientid=ClientID, gui=GUIName}}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Async Events are handled in handle_event as in handle_info
 handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item} },
-             St = #state{ parent = Panel, client = ClientName }) ->
+             St = #state{ parent = Panel, client = ClientName, clientid = ClientID }) ->
 
     clear_text(with_label(ClientName, ?CMDLINE)),
     Cmd = lexgrm:parse_cmd(Item),
@@ -119,7 +123,7 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
             case Result of
                  ok -> write_channel(with_label(ClientName, ?SYSTEM), "+ Joined "++Channel),
                            Tab = create_tab(ClientName, Channel, "* Channel "++Channel),
-                           label(ClientName, Tab, Channel) ;
+                           label(ClientID, channel_id(Channel), Tab) ;
                  error  -> ok
             end ;
 
@@ -137,7 +141,7 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
                  _        -> Result = catch_fatal(ClientName, Panel,
                                                   fun () -> request(ClientName, {msg_from_GUI, Channel, String}) end ),
                              case Result of
-                                 ok    -> write_channel(with_label(ClientName, Channel), String) ;
+                                 ok    -> write_channel(with_label(ClientName, channel_id(Channel)), String) ;
                                  error -> ok
                              end
             end ;
@@ -188,7 +192,7 @@ handle_call(shutdown, _From, State) ->
 
 %% Here, the GUI receives a message from the client process!
 handle_call({msg_to_GUI, Channel, Msg}, _From, State = #state{ client = ClientName }) ->
-    write_channel( with_label(ClientName, Channel), Msg),
+    write_channel( with_label(ClientName, channel_id(Channel)), Msg),
     {reply, ok, State} ;
 
 handle_call(_Msg, _From, State) ->
@@ -208,10 +212,11 @@ terminate(_Reason, _State) ->
 
 %% Finding an unique name
 find_unique_name(Prefix,N) ->
-    MStr = integer_to_list(random:uniform(N)),
+    Num = random:uniform(N),
+    MStr = integer_to_list(Num),
     Name = Prefix++MStr,
     case whereis(to_atom(Name)) of
-        undefined -> Name ;
+        undefined -> {Name, Num} ;
         _         -> find_unique_name(Prefix,N)
     end.
 
@@ -221,11 +226,9 @@ trace(Args) ->
     io:format("~n~s"++lists:flatten(lists:duplicate(length(Args)-1,"~p")),Args).
 
 %% GUI
-clear_text(Label) ->
-    CmdLine = typed_search(Label, wxTextCtrl),
-    Length = wxTextCtrl:getLineLength(CmdLine, 0),
-    wxTextCtrl:remove(CmdLine, 0, Length).
-
+clear_text(ID) ->
+    CmdLine = typed_search(ID, wxTextCtrl),
+    wxTextCtrl:setValue(CmdLine, "").
 
 fatal_dialog(Parent, Error) ->
     StrError = lists:flatten(io_lib:format("~p",[Error])),
@@ -235,8 +238,8 @@ fatal_dialog(Parent, Error) ->
     wxDialog:showModal(WW),
     exit(StrError).
 
-create_tab(Client, Title, Init) ->
-    Ntbk = typed_search(with_label(Client, ?NOTEBOOK), wxAuiNotebook),
+create_tab(ClientName, Title, Init) ->
+    Ntbk = typed_search(with_label(ClientName, ?NOTEBOOK), wxAuiNotebook),
     NtbkPanel = wxPanel:new(Ntbk, []),
     Msgs = wxTextCtrl:new(NtbkPanel, -1,
                            [{value, Init},
@@ -248,45 +251,70 @@ create_tab(Client, Title, Init) ->
     wxSizer:add(NtbkSizer, Msgs, [{flag, ?wxEXPAND}, {proportion,1}]),
     wxPanel:setSizer(NtbkPanel, NtbkSizer),
     wxAuiNotebook:addPage(Ntbk,NtbkPanel,Title),
-    wxPanel:setFocusIgnoringChildren(NtbkPanel),
+    % wxPanel:setFocusIgnoringChildren(NtbkPanel),
     Msgs.
 
-active_channel(Label) ->
-    Ntbk = typed_search(Label, wxAuiNotebook),
+active_channel(ID) ->
+    Ntbk = typed_search(ID, wxAuiNotebook),
     PageNumber = wxAuiNotebook:getSelection(Ntbk),
     Title = wxAuiNotebook:getPageText(Ntbk, PageNumber),
     Title.
 
-close_tab(Label, TabName) ->
-    Ntbk = typed_search(Label, wxAuiNotebook),
+close_tab(ID, TabName) ->
+    Ntbk = typed_search(ID, wxAuiNotebook),
     Max  = wxAuiNotebook:getPageCount(Ntbk),
     Tabs = [ {wxAuiNotebook:getPageText(Ntbk,N), N} || N <- lists:seq(0,Max-1) ],
     {_, PageNumber} = lists:keyfind(TabName, 1, Tabs),
     wxAuiNotebook:removePage(Ntbk, PageNumber).
 
-
-write_channel(Label, String) ->
-    DMesg = typed_search(Label,wxTextCtrl),
+write_channel(ID, String) ->
+    DMesg = typed_search(ID,wxTextCtrl),
     wxTextCtrl:writeText(DMesg, "\n"++String).
 
-
 %% Labels
-focus(Label) ->
-     W = wxWindow:findWindowByLabel(Label),
+focus(ID) ->
+     W = wxWindow:findWindowById(ID),
      wxWindow:setFocus(W).
 
-typed_search(Label, no_cast) ->
-    wxWindow:findWindowByLabel(Label) ;
+typed_search(ID, no_cast) ->
+    Result = wxWindow:findWindowById(ID),
+    % io:format("Looking for label ~p and found ~p~n",[ID,Result]),
+    Result ;
 
-typed_search(Label, Cast) ->
-    {F1,F2,_,F3} = wxWindow:findWindowByLabel(Label),
+typed_search(ID, Cast) ->
+    Result = wxWindow:findWindowById(ID),
+    {F1, F2, _, F3} = Result,
+    % io:format("Looking for label ~p and found ~p~n",[ID,{F1,F2,Cast,F3}]),
     {F1,F2,Cast,F3}.
 
-label(Client, Widget, Label) ->
-    wxControl:setLabel(Widget, with_label(Client, Label)).
+label(ClientID, ID, Widget) ->
+    Label = join_ids(ClientID, ID),
+    Result = wxWindow:setId(Widget, Label),
+    % io:format("Setting label ~p to widget ~p, result ~p~n",[Label,Widget, Result]),
+    ok.
 
-with_label(Client, Label) ->
-    Client++Label.
+% with_label("client_123", 9) = 1239
+with_label(ClientName, Id) ->
+    CIds = lists:sublist(ClientName,8,5),
+    S = lists:flatten(io_lib:format("~s~p", [CIds, Id])),
+    {N, _} = string:to_integer(S),
+    N.
+
+% join_ids(123,456) = 123456
+join_ids(ClientId, Id) ->
+    S = lists:flatten(io_lib:format("~p~p", [ClientId, Id])),
+    {N, _} = string:to_integer(S),
+    N.
+
+% Channel name to ID
+channel_id(ChannelName) ->
+    S = lists:foldl(fun(S, Acc) -> io_lib:format("~p", [S])++Acc end, "", ChannelName),
+    list_to_integer(lists:flatten(S)).
+
+% % Go from client_123 to 123 (integer)
+% client_id(ClientName) ->
+%     {N, _} = string:to_integer(lists:sublist(ClientName,8,5)),
+%     N.
 
 %% Requests
 request(ClientName, Msg) ->
