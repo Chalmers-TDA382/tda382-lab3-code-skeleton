@@ -2,7 +2,6 @@
 
 -export([start/0, init/1, terminate/2,  code_change/3,
 	 handle_info/2, handle_call/3, handle_cast/2, handle_event/2]).
-% -compile(export_all).
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
 
@@ -140,8 +139,7 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
          {msg, String}     ->
             Channel = active_channel(with_label(ClientName,?NOTEBOOK)),
             case Channel of
-                 ?SYSTEM ->  write_channel(with_label(ClientName, ?SYSTEM), "- "++"Command not recognized"),
-                             write_channel(with_label(ClientName, ?SYSTEM), String) ;
+                 ?SYSTEM_NAME ->  write_channel(with_label(ClientName, ?SYSTEM), "- "++"Command not recognized: "++String) ;
                  _        -> Result = catch_fatal(ClientName, Panel,
                                                   fun () -> request(ClientName, {msg_from_GUI, Channel, String}) end ),
                              case Result of
@@ -263,11 +261,12 @@ active_channel(ID) ->
     Title.
 
 close_tab(NotebookID, TabName) ->
-    io:format("Closing tab ~p ~p~n",[NotebookID, TabName]),
     Ntbk = typed_search(NotebookID, wxAuiNotebook),
     Max  = wxAuiNotebook:getPageCount(Ntbk),
     Tabs = [ {wxAuiNotebook:getPageText(Ntbk,N), N} || N <- lists:seq(0,Max-1) ],
     {_, PageNumber} = lists:keyfind(TabName, 1, Tabs),
+    Page = wxAuiNotebook:getPage(Ntbk,PageNumber),
+    wxWindow:destroyChildren(Page),
     wxAuiNotebook:removePage(Ntbk, PageNumber).
 
 write_channel(ID, String) ->
@@ -293,7 +292,7 @@ typed_search(ID, Cast) ->
 label(ClientID, ID, Widget) ->
     Label = join_ids(ClientID, ID),
     Result = wxWindow:setId(Widget, Label),
-    io:format("Setting label ~p to widget ~p, result ~p~n",[Label,Widget, Result]),
+    % io:format("Setting label ~p to widget ~p, result ~p~n",[Label,Widget, Result]),
     ok.
 
 % with_label("client_123", 9) = 1239
