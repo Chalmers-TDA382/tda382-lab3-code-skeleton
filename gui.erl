@@ -14,6 +14,8 @@
 -define(NOTEBOOK, 2).
 -define(MAX_CONNECTIONS, 100000).
 
+-define(SYSTEM_NAME, "System").
+
 
 % This record defines the structure of the
 % client process.
@@ -66,7 +68,7 @@ do_init(Server) ->
     Ntbk = wxAuiNotebook:new(Panel,[{style,?wxAUI_NB_DEFAULT_STYLE}]),
     label(ClientID, ?NOTEBOOK, Ntbk),
 
-    Tab = create_tab(ClientName, "System", "Welcome to CCHAT v. 0.1\n"),
+    Tab = create_tab(ClientName, ?SYSTEM_NAME, "Welcome to CCHAT v. 0.1\n"),
     label(ClientID, ?SYSTEM, Tab),
 
     %% Sizers
@@ -174,9 +176,13 @@ handle_event(#wx{ event = #wxAuiNotebook{type = command_auinotebook_button, sele
              St = #state{ parent = Panel, client = ClientName }) ->
     Ntbk    = typed_search(with_label(ClientName, ?NOTEBOOK), wxAuiNotebook),
     Channel = wxAuiNotebook:getPageText(Ntbk,TabPos),
-    leave_channel(ClientName, Panel, Channel),
+    case Channel of
+        ?SYSTEM_NAME ->
+            write_channel(with_label(ClientName, ?SYSTEM), "- "++"Cannot close system tab") ;
+        _ ->
+            leave_channel(ClientName, Panel, Channel)
+    end,
     {noreply, St} ;
-
 
 handle_event(WX = #wx{}, State = #state{}) ->
     io:format("#wx: ~p~n",[WX]),
@@ -219,7 +225,6 @@ find_unique_name(Prefix,N) ->
         undefined -> {Name, Num} ;
         _         -> find_unique_name(Prefix,N)
     end.
-
 
 %% Debugging
 trace(Args) ->
@@ -307,14 +312,11 @@ join_ids(ClientId, Id) ->
     N.
 
 % Channel name to ID
+% Concats ASCII codes for each charcacter into a mega integer
+% channel_id("AAA") = 656565
 channel_id(ChannelName) ->
     S = lists:foldl(fun(S, Acc) -> io_lib:format("~p", [S])++Acc end, "", ChannelName),
     list_to_integer(lists:flatten(S)).
-
-% % Go from client_123 to 123 (integer)
-% client_id(ClientName) ->
-%     {N, _} = string:to_integer(lists:sublist(ClientName,8,5)),
-%     N.
 
 %% Requests
 request(ClientName, Msg) ->
