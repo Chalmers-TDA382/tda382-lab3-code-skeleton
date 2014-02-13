@@ -256,7 +256,7 @@ create_tab(ClientName, Title, Init) ->
     wxSizer:add(NtbkSizer, Msgs, [{flag, ?wxEXPAND}, {proportion,1}]),
     wxPanel:setSizer(NtbkPanel, NtbkSizer),
     wxAuiNotebook:addPage(Ntbk,NtbkPanel,Title),
-    % wxPanel:setFocusIgnoringChildren(NtbkPanel),
+    wxWindow:setFocus(NtbkPanel),
     Msgs.
 
 active_channel(ID) ->
