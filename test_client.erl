@@ -9,8 +9,6 @@
 % --- Helpers ----------------------------------------------------------------
 
 % It is assumed that is called at the beginning of each test case (only)
-% init() ->
-%     init("Test").
 init(Name) ->
     ?assert(compile:file(server) =:= {ok,server}),
     putStrLn(blue("\n# Test: "++Name)),
@@ -53,7 +51,7 @@ new_client(Nick, GUIName) ->
 new_client_connect() ->
     {Pid, Nick, ClientAtom} = new_client(),
     Result = genserver:request(ClientAtom, {connect, ?SERVER}),
-    assert(atom_to_list(ClientAtom)++" connects to server as "++Nick, Result =:= ok),
+    assert_ok(atom_to_list(ClientAtom)++" connects to server as "++Nick, Result),
     {Pid, Nick, ClientAtom}.
 
 % Start a new client and connect to server
@@ -65,7 +63,7 @@ new_client_connect(GUI) ->
             new_gui(GUIName),
             {Pid, Nick, ClientAtom} = new_client(Nick, GUIName),
             Result = genserver:request(ClientAtom,{connect, ?SERVER}),
-            assert(atom_to_list(ClientAtom)++" connects to server as "++Nick, Result =:= ok),
+            assert_ok(atom_to_list(ClientAtom)++" connects to server as "++Nick, Result),
             {Pid, Nick, ClientAtom}
             ;
         _ -> new_client_connect()
@@ -74,39 +72,39 @@ new_client_connect(GUI) ->
 % Connect and assert it succeeded
 connect(ClientAtom) ->
     Result = genserver:request(ClientAtom,{connect, ?SERVER}),
-    assert(atom_to_list(ClientAtom)++" connects to server", Result =:= ok).
+    assert_ok(atom_to_list(ClientAtom)++" connects to server", Result).
 
 % Join a channel and assert it succeeded
 join_channel(ClientAtom, Channel) ->
     Result = genserver:request(ClientAtom,{join,Channel}),
-    assert(atom_to_list(ClientAtom)++" joins "++Channel, Result =:= ok).
+    assert_ok(atom_to_list(ClientAtom)++" joins "++Channel, Result).
 
 % Leave a channel and assert it succeeded
 leave_channel(ClientAtom, Channel) ->
     Result = genserver:request(ClientAtom,{leave,Channel}),
-    assert(atom_to_list(ClientAtom)++" leaves "++Channel, Result =:= ok).
+    assert_ok(atom_to_list(ClientAtom)++" leaves "++Channel, Result).
 
 % Disconnect and assert it succeeded
 disconnect(ClientAtom) ->
     Result = genserver:request(ClientAtom,disconnect),
-    assert(atom_to_list(ClientAtom)++" disconnects from server", Result =:= ok).
+    assert_ok(atom_to_list(ClientAtom)++" disconnects from server", Result).
 
 % Send a message and assert it succeeded
 send_message(ClientAtom, Channel, Message) ->
     Result = genserver:request(ClientAtom, {msg_from_GUI,Channel,Message}),
-    assert(atom_to_list(ClientAtom)++" sends message on "++Channel, Result =:= ok).
+    assert_ok(atom_to_list(ClientAtom)++" sends message on "++Channel, Result).
 
 % Change nick and assert it succeeded
 change_nick(ClientAtom, Nick) ->
     Result = genserver:request(ClientAtom, {nick,Nick}),
-    assert(atom_to_list(ClientAtom)++" changes nick to "++Nick, Result =:= ok).
+    assert_ok(atom_to_list(ClientAtom)++" changes nick to "++Nick, Result).
 
 % Receive a message from dummy GUI
 receive_message(Channel, Nick, Message) ->
     receive
         {msg_to_GUI, From, Msg} ->
-            assert("channel matches", From =:= Channel),
-            assert("message matches", Msg =:= Nick++"> "++Message)
+            assert("channel matches", From, Channel),
+            assert("message matches", Msg, Nick++"> "++Message)
     after
         500 ->
             putStrLn(red("nothing received")),
@@ -135,6 +133,17 @@ assert(Message, Condition) ->
         {'EXIT', Ex} -> putStrLn(Pfx++red("Fail")), throw(Ex) ;
         _            -> putStrLn(Pfx++green("Ok"))
     end.
+assert(Message, X, Y) ->
+    Pfx = Message++": ",
+    case (catch(?assert(X =:= Y))) of
+        {'EXIT', Ex} ->
+            putStrLn(Pfx++red("Fail")),
+            putStrLn("Expected: ~p~nGot: ~p", [Y,X]),
+            throw(Ex) ;
+        _            -> putStrLn(Pfx++green("Ok"))
+    end.
+assert_ok(Message, X) ->
+    assert(Message, X, ok).
 
 % Assert for particular error message
 assert_error(Result, Atom) ->
