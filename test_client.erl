@@ -2,7 +2,7 @@
 -include_lib("./defs.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -compile(export_all).
--define(SERVER,"server").
+-define(SERVER,"shire").
 -define(SERVERATOM, list_to_atom(?SERVER)).
 -define(MAX, 100000).
 
