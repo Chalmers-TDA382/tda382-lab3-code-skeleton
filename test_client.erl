@@ -151,7 +151,10 @@ assert_error(Result, Atom) ->
 assert_error(Message, Result, Atom) ->
     Pfx = Message++" fails: ",
     case (catch(assert_error(Result, Atom))) of
-        {'EXIT', Ex} -> putStrLn(Pfx++red("Passes")), throw(Ex) ;
+        {'EXIT', Ex} ->
+            putStrLn(Pfx++red("Passes")),
+            putStrLn("Expected error: ~p~nGot: ~p", [Atom,Result]),
+            throw(Ex) ;
         _            -> putStrLn(Pfx++green("Ok"))
     end.
 
@@ -443,8 +446,11 @@ many_users_one_channel() ->
     Recv  = fun (_) -> receive ready -> ok end end,
     putStrLn("spawning ~p clients, each connecting to 1 channel...", [X]),
     output_off(),
+    T1 = now(),
     lists:map(Spawn, Seq),
-    {Time, _Value} = timer:tc(fun () -> lists:map(Recv, Seq) end),
+    lists:map(Recv, Seq),
+    T2 = now(),
+    Time = timer:now_diff(T2, T1),
     output_on(),
     putStrLn(red("time elapsed: ~p ms"), [Time/1000]),
     ok.
@@ -488,8 +494,11 @@ many_users_many_channels() ->
     Recv  = fun (_) -> receive ready -> ok end end,
     putStrLn("spawning ~p clients, each connecting to ~p channels...", [Users, Chans]),
     output_off(),
+    T1 = now(),
     lists:map(Spawn, UsersSeq),
-    {Time, _Value} = timer:tc(fun () -> lists:map(Recv, UsersSeq) end),
+    lists:map(Recv, UsersSeq),
+    T2 = now(),
+    Time = timer:now_diff(T2, T1),
     output_on(),
     putStrLn(red("time elapsed: ~p ms"), [Time/1000]),
     ok.
