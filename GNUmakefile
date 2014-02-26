@@ -39,10 +39,16 @@ run_perf_tests: tests all
 	echo "\n\033[32m=== Running with 1 core  === \033[0m\n"
 	erl -smp +S 1 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
 
-tests: test_client.beam dummy_gui.beam
+run_distributed_tests: tests all
+	erl -name "testsuite@127.0.0.1" -eval "eunit:test(test_remote), halt()"
+
+tests: test_client.beam dummy_gui.beam test_remote.beam
 
 test_client.beam : test_client.erl
 	erl -compile test_client.erl
+
+test_remote.beam : test_remote.erl
+	erl -compile test_remote.erl
 
 dummy_gui.beam : dummy_gui.erl
 	erl -compile dummy_gui.erl

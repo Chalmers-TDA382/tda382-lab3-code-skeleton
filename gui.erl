@@ -101,14 +101,23 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
     trace(["Command:", Cmd]),
     case Cmd  of
 
-         %% Connecting to the server
-         {connect, Server} ->
-            write_channel(with_label(ClientName, ?SYSTEM), "* "++"Trying to connect to "++Server++"..."),
-            Result = catch_fatal (ClientName, Panel, fun () -> request(ClientName, {connect,Server}) end ),
+         %% Connecting to the server (Specifying the remote machine)
+         {connect_remote, Server, Machine} ->
+            write_channel(with_label(ClientName, ?SYSTEM), "* "++"Trying to connect to "++Server++" in machine "++Machine++"..."),
+            Result = catch_fatal (ClientName, Panel, fun () -> request(ClientName, {connect, {Server, Machine}}) end ),
             case Result of
                  ok     -> write_channel(with_label(ClientName, ?SYSTEM), "+ Connected!") ;
                  error  -> ok
-            end ;
+            end ; 
+
+         %% Connecting to the server
+         {connect, Server} ->
+            write_channel(with_label(ClientName, ?SYSTEM), "* "++"Trying to connect to "++Server++"..."),			     
+            Result = catch_fatal (ClientName, Panel, fun () -> request(ClientName, {connect, { Server, atom_to_list(node(self())) } }) end ),
+            case Result of
+                 ok     -> write_channel(with_label(ClientName, ?SYSTEM), "+ Connected!") ;
+                 error  -> ok
+            end ; 
 
          %% Disconnect from the server
          disconnect ->

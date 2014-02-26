@@ -8,6 +8,23 @@
 
 % --- Helpers ----------------------------------------------------------------
 
+% Our own version of genserver:request without a timeout
+request(Pid, Data) ->
+    Ref = make_ref(),
+    Pid!{request, self(), Ref, Data},
+    receive
+	{result, Ref, Result} ->
+	    Result;
+	{exit, Ref, Reason} ->
+	    exit(Reason)
+    end.
+
+% Generic to_string
+to_string({Atom,Node}) ->
+    atom_to_list(Node);
+to_string(X) ->
+    io_lib:format("~p", [X]).
+
 % It is assumed that is called at the beginning of each test case (only)
 init(Name) ->
     ?assert(compile:file(server) =:= {ok,server}),
@@ -50,8 +67,8 @@ new_client(Nick, GUIName) ->
 % Start a new client and connect to server
 new_client_connect() ->
     {Pid, Nick, ClientAtom} = new_client(),
-    Result = genserver:request(ClientAtom, {connect, ?SERVER}),
-    assert_ok(atom_to_list(ClientAtom)++" connects to server as "++Nick, Result),
+    Result = request(ClientAtom, {connect, ?SERVER}),
+    assert_ok(to_string(ClientAtom)++" connects to server as "++Nick, Result),
     {Pid, Nick, ClientAtom}.
 
 % Start a new client and connect to server
@@ -62,8 +79,8 @@ new_client_connect(GUI) ->
             GUIName = find_unique_name("gui_"),
             new_gui(GUIName),
             {Pid, Nick, ClientAtom} = new_client(Nick, GUIName),
-            Result = genserver:request(ClientAtom,{connect, ?SERVER}),
-            assert_ok(atom_to_list(ClientAtom)++" connects to server as "++Nick, Result),
+            Result = request(ClientAtom,{connect, ?SERVER}),
+            assert_ok(to_string(ClientAtom)++" connects to server as "++Nick, Result),
             {Pid, Nick, ClientAtom}
             ;
         _ -> new_client_connect()
@@ -71,33 +88,33 @@ new_client_connect(GUI) ->
 
 % Connect and assert it succeeded
 connect(ClientAtom) ->
-    Result = genserver:request(ClientAtom,{connect, ?SERVER}),
-    assert_ok(atom_to_list(ClientAtom)++" connects to server", Result).
+    Result = request(ClientAtom,{connect, ?SERVER}),
+    assert_ok(to_string(ClientAtom)++" connects to server", Result).
 
 % Join a channel and assert it succeeded
 join_channel(ClientAtom, Channel) ->
-    Result = genserver:request(ClientAtom,{join,Channel}),
-    assert_ok(atom_to_list(ClientAtom)++" joins "++Channel, Result).
+    Result = request(ClientAtom,{join,Channel}),
+    assert_ok(to_string(ClientAtom)++" joins "++Channel, Result).
 
 % Leave a channel and assert it succeeded
 leave_channel(ClientAtom, Channel) ->
-    Result = genserver:request(ClientAtom,{leave,Channel}),
-    assert_ok(atom_to_list(ClientAtom)++" leaves "++Channel, Result).
+    Result = request(ClientAtom,{leave,Channel}),
+    assert_ok(to_string(ClientAtom)++" leaves "++Channel, Result).
 
 % Disconnect and assert it succeeded
 disconnect(ClientAtom) ->
-    Result = genserver:request(ClientAtom,disconnect),
-    assert_ok(atom_to_list(ClientAtom)++" disconnects from server", Result).
+    Result = request(ClientAtom,disconnect),
+    assert_ok(to_string(ClientAtom)++" disconnects from server", Result).
 
 % Send a message and assert it succeeded
 send_message(ClientAtom, Channel, Message) ->
-    Result = genserver:request(ClientAtom, {msg_from_GUI,Channel,Message}),
-    assert_ok(atom_to_list(ClientAtom)++" sends message on "++Channel, Result).
+    Result = request(ClientAtom, {msg_from_GUI,Channel,Message}),
+    assert_ok(to_string(ClientAtom)++" sends message on "++Channel, Result).
 
 % Change nick and assert it succeeded
 change_nick(ClientAtom, Nick) ->
-    Result = genserver:request(ClientAtom, {nick,Nick}),
-    assert_ok(atom_to_list(ClientAtom)++" changes nick to "++Nick, Result).
+    Result = request(ClientAtom, {nick,Nick}),
+    assert_ok(to_string(ClientAtom)++" changes nick to "++Nick, Result).
 
 % Receive a message from dummy GUI
 receive_message(Channel, Nick, Message) ->
@@ -323,7 +340,7 @@ write_receive_2_test() ->
 connect_wrong_server_test() ->
     init("connect_wrong_server"),
     {_Pid, _Nick, ClientAtom} = new_client(),
-    Result = genserver:request(ClientAtom, {connect, "mordor"}),
+    Result = request(ClientAtom, {connect, "mordor"}),
     assert_error("connecting to server mordor", Result, server_not_reached).
 
 % Logging in with a name that is taken
@@ -335,14 +352,14 @@ connect_registered_nick_test() ->
 
     % Client 2, set nick to client1's
     {_Pid2, _Nick2, ClientAtom2} = new_client(Nick1),
-    Result = genserver:request(ClientAtom2, {connect, ?SERVER}),
-    assert_error(atom_to_list(ClientAtom2)++" connecting as "++_Nick2, Result, user_already_connected).
+    Result = request(ClientAtom2, {connect, ?SERVER}),
+    assert_error(to_string(ClientAtom2)++" connecting as "++_Nick2, Result, user_already_connected).
 
 % Disconnect when not connected
 disconnect_not_connected_test() ->
     init("disconnect_not_connected"),
     {_Pid, _Nick, ClientAtom} = new_client(),
-    Result = genserver:request(ClientAtom, disconnect),
+    Result = request(ClientAtom, disconnect),
     assert_error("disconnecting when not connected", Result, user_not_connected).
 
 % Disconnect when still in channels
@@ -352,8 +369,8 @@ disconnect_leave_channels_first_test() ->
     {_Pid, _Nick, ClientAtom} = new_client_connect(),
     join_channel(ClientAtom, Channel),
 
-    Result2 = genserver:request(ClientAtom, disconnect),
-    assert_error(atom_to_list(ClientAtom)++" disconnects without leaving "++Channel, Result2, leave_channels_first).
+    Result2 = request(ClientAtom, disconnect),
+    assert_error(to_string(ClientAtom)++" disconnects without leaving "++Channel, Result2, leave_channels_first).
 
 % Joining already joined
 join_already_joined_test() ->
@@ -362,8 +379,8 @@ join_already_joined_test() ->
     {_Pid, _Nick, ClientAtom} = new_client_connect(),
     join_channel(ClientAtom, Channel),
 
-    Result2 = genserver:request(ClientAtom,{join,Channel}),
-    assert_error(atom_to_list(ClientAtom)++" joins "++Channel, Result2, user_already_joined).
+    Result2 = request(ClientAtom,{join,Channel}),
+    assert_error(to_string(ClientAtom)++" joins "++Channel, Result2, user_already_joined).
 
 % Writing when not joined
 write_not_joined_test() ->
@@ -376,8 +393,8 @@ write_not_joined_test() ->
 
     % Client 2
     {_Pid2, _Nick2, ClientAtom2} = new_client_connect(),
-    Result = genserver:request(ClientAtom2,{msg_from_GUI,Channel,"hi"}),
-    assert_error(atom_to_list(ClientAtom2)++" writing to "++Channel, Result, user_not_joined).
+    Result = request(ClientAtom2,{msg_from_GUI,Channel,"hi"}),
+    assert_error(to_string(ClientAtom2)++" writing to "++Channel, Result, user_not_joined).
 
 % Leaving when not joined
 leave_not_joined_test() ->
@@ -390,8 +407,8 @@ leave_not_joined_test() ->
 
     % Client 2
     {_Pid2, _Nick2, ClientAtom2} = new_client_connect(),
-    Result2 = genserver:request(ClientAtom2,{leave,Channel}),
-    assert_error(atom_to_list(ClientAtom2)++" leaving "++Channel, Result2, user_not_joined).
+    Result2 = request(ClientAtom2,{leave,Channel}),
+    assert_error(to_string(ClientAtom2)++" leaving "++Channel, Result2, user_not_joined).
 
 % Trying to take a nick which is taken
 % Moved to Lab 4
@@ -408,8 +425,8 @@ leave_not_joined_test() ->
 %     join_channel(ClientAtom2, Channel),
 
 %     % Change nick of 1 to 2
-%     Result = genserver:request(ClientAtom1,{nick,Nick2}),
-%     assert_error(atom_to_list(ClientAtom1)++" changing nick to "++Nick2, Result, nick_taken).
+%     Result = request(ClientAtom1,{nick,Nick2}),
+%     assert_error(to_string(ClientAtom1)++" changing nick to "++Nick2, Result, nick_taken).
 
 % --- Performance unit tests -------------------------------------------------
 
