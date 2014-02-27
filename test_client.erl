@@ -6,6 +6,10 @@
 -define(SERVERATOM, list_to_atom(?SERVER)).
 -define(MAX, 100000).
 
+-define(PERF_1_USERS, 250).
+-define(PERF_2_USERS, 150).
+-define(PERF_2_CHANS, 100).
+
 % --- Helpers ----------------------------------------------------------------
 
 % Our own version of genserver:request without a timeout
@@ -20,7 +24,7 @@ request(Pid, Data) ->
     end.
 
 % Generic to_string
-to_string({Atom,Node}) ->
+to_string({_Atom,Node}) ->
     atom_to_list(Node);
 to_string(X) ->
     io_lib:format("~p", [X]).
@@ -308,7 +312,6 @@ write_receive_2_test() ->
     ok.
 
 % Changing nick
-% Moved to Lab 4
 % change_nick_test() ->
 %     init("change_nick"),
 %     Channel = new_channel(),
@@ -411,7 +414,6 @@ leave_not_joined_test() ->
     assert_error(to_string(ClientAtom2)++" leaving "++Channel, Result2, user_not_joined).
 
 % Trying to take a nick which is taken
-% Moved to Lab 4
 % nick_taken_test() ->
 %     init("nick_taken"),
 %     Channel = new_channel(),
@@ -437,7 +439,6 @@ many_users_one_channel() ->
     init("many_users_one_channel"),
     Channel = new_channel(),
     ParentPid = self(),
-    X = 500, % number of users
     F = fun (I) ->
                 fun () ->
                         Is = lists:flatten(io_lib:format("~p", [I])),
@@ -458,10 +459,10 @@ many_users_one_channel() ->
                         ok
                 end
         end,
-    Seq = lists:seq(1, X),
+    Seq = lists:seq(1, ?PERF_1_USERS),
     Spawn = fun (I) -> spawn_link(F(I)) end,
     Recv  = fun (_) -> receive ready -> ok end end,
-    putStrLn("spawning ~p clients, each connecting to 1 channel...", [X]),
+    putStrLn("spawning ~p clients, each connecting to 1 channel...", [?PERF_1_USERS]),
     output_off(),
     T1 = now(),
     lists:map(Spawn, Seq),
@@ -478,10 +479,8 @@ many_users_one_channel() ->
 many_users_many_channels() ->
     init("many_users_many_channels"),
     ParentPid = self(),
-    Chans = 200, % channels
-    Users = 300, % users (join all channels!)
-    ChansSeq = lists:seq(1, Chans),
-    UsersSeq = lists:seq(1, Users),
+    ChansSeq = lists:seq(1, ?PERF_2_CHANS),
+    UsersSeq = lists:seq(1, ?PERF_2_USERS),
     F = fun (I) ->
                 fun () ->
                         Is = lists:flatten(io_lib:format("~p", [I])),
@@ -509,7 +508,7 @@ many_users_many_channels() ->
         end,
     Spawn = fun (I) -> spawn_link(F(I)) end,
     Recv  = fun (_) -> receive ready -> ok end end,
-    putStrLn("spawning ~p clients, each connecting to ~p channels...", [Users, Chans]),
+    putStrLn("spawning ~p clients, each connecting to ~p channels...", [?PERF_2_USERS, ?PERF_2_CHANS]),
     output_off(),
     T1 = now(),
     lists:map(Spawn, UsersSeq),
