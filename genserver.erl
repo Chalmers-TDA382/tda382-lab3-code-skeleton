@@ -1,5 +1,5 @@
 -module(genserver).
--export([start/3, request/2, update/2]).
+-export([start/3, request/2, request/3, update/2]).
 -include_lib("./defs.hrl").
 
 start(Name, State, F) ->
@@ -26,6 +26,9 @@ loop(State, F) ->
     end.
 
 request(Pid, Data) ->
+    request(Pid, Data, 3000).
+
+request(Pid, Data, Timeout) ->
     Ref = make_ref(),
     Pid!{request, self(), Ref, Data},
     receive
@@ -33,6 +36,8 @@ request(Pid, Data) ->
 	    Result;
 	{exit, Ref, Reason} ->
 	    exit(Reason)
+    after Timeout ->
+	    exit("Timeout")
     end.
 
 update(Pid, Fun) ->
@@ -42,4 +47,3 @@ update(Pid, Fun) ->
 	{ok, Ref} ->
 	    ok
     end.
-
