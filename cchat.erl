@@ -7,12 +7,12 @@
 server() ->
     Server = "shire",
     catch(unregister(list_to_atom(Server))),
-    genserver:start(list_to_atom(Server), server:initial_state(Server), 
+    genserver:start(list_to_atom(Server), server:initial_state(Server),
                     fun server:loop/2).
 
 gui_interface() ->
     gui:start().
-    
+
 start() ->
     %% Starting a local server
     %% Starting the GUI, which starts the client
@@ -24,5 +24,5 @@ start2() ->
     %% Starting a local server
     %% Starting the GUI, which starts the client
     server(),
-    spawn(fun gui_interface/0), 
-    spawn(fun gui_interface/0). 
+    gui_interface(),
+    gui_interface().
