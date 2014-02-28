@@ -1,7 +1,7 @@
 % Top level module
 -module(cchat).
 
--export([start/0,server/0,gui_interface/0,start2/0]).
+-export([start/0,server/0,gui_interface/0,client/0,start2/0]).
 -include_lib("./defs.hrl").
 
 server() ->
@@ -11,6 +11,9 @@ server() ->
                     fun server:loop/2).
 
 gui_interface() ->
+    gui:start().
+
+client() ->
     gui:start().
 
 start() ->

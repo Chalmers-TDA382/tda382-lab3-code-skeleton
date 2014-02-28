@@ -40,9 +40,10 @@ run_perf_tests: tests all
 	erl -smp +S 1 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
 
 run_distributed_tests: tests all
+	-killall beam.smp 2>/dev/null
 	erl -name "testsuite@127.0.0.1" -eval "eunit:test(test_remote), halt()"
 
-tests: test_client.beam dummy_gui.beam test_remote.beam
+tests: test_client.beam test_remote.beam dummy_gui.beam
 
 test_client.beam : test_client.erl
 	erl -compile test_client.erl
