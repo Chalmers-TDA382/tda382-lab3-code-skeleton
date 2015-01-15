@@ -12,7 +12,7 @@
 
 % --- Helpers ----------------------------------------------------------------
 
-% Our own version of genserver:request without a timeout
+% Our own version of helper:request without a timeout
 request(Pid, Data) ->
     Ref = make_ref(),
     Pid!{request, self(), Ref, Data},
@@ -35,7 +35,7 @@ init(Name) ->
     putStrLn(blue("\n# Test: "++Name)),
     catch(unregister(?SERVERATOM)),
     InitState = server:initial_state(?SERVER),
-    Result = genserver:start(?SERVERATOM, InitState, fun server:loop/2),
+    Result = helper:start(?SERVERATOM, InitState, fun server:main/1),
     assert("server startup", is_pid(Result)).
 
 % Start new GUI and register it as Name
@@ -65,7 +65,7 @@ new_client(Nick) ->
 new_client(Nick, GUIName) ->
     ClientName = find_unique_name("client_"),
     ClientAtom = list_to_atom(ClientName),
-    Pid = genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
+    Pid = helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
     {Pid, Nick, ClientAtom}.
 
 % Start a new client and connect to server
@@ -448,7 +448,7 @@ many_users_one_channel() ->
                         ClientAtom = list_to_atom(ClientName),
                         GUIName = "gui_perf1_"++Is,
                         new_gui(GUIName),
-                        genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
+                        helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
                         connect(ClientAtom),
                         join_channel(ClientAtom, Channel),
                         send_message(ClientAtom, Channel, "message_"++Is++"_1"),
@@ -489,7 +489,7 @@ many_users_many_channels() ->
                         ClientAtom = list_to_atom(ClientName),
                         GUIName = "gui_perf2_"++Is,
                         new_gui(GUIName),
-                        genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
+                        helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
                         connect(ClientAtom),
                         G = fun(Ch_Ix) ->
                                     Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),

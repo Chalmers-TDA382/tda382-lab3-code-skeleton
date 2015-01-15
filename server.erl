@@ -1,11 +1,10 @@
 -module(server).
--export([loop/2, initial_state/1]).
-
+-export([main/1, initial_state/1]).
 -include_lib("./defs.hrl").
 
-loop(St, _Msg) -> 
-    {ok, St}. 
+main(State) ->
+    % TODO: Receive message, handle it, and loop
+    ok.
 
-
-initial_state(_Server) ->
+initial_state(ServerName) ->
     #server_st{}.

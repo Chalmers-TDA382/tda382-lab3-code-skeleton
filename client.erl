@@ -1,72 +1,54 @@
 -module(client).
--export([loop/2, initial_state/2]).
-
+-export([main/1, initial_state/2]).
 -include_lib("./defs.hrl").
 
-%%%%%%%%%%%%%%%
-%%%% Connect
-%%%%%%%%%%%%%%%
+%% Receive messages from GUI and handle them accordingly
+main(State) ->
+    receive
+        {request, From, Ref, Request} ->
+            {Response, NextState} = loop(State, Request),
+            From ! {result, Ref, Response},
+            main(NextState)
+    end.
+
+%% Produce initial state
+initial_state(Nick, GUIName) ->
+    #cl_st { gui = GUIName }.
+
+%% ---------------------------------------------------------------------------
+
+%% loop handles each kind of request from GUI
+
+%% Connect to server
 loop(St, {connect, _Server}) ->
     {ok, St} ;
 
-%%%%%%%%%%%%%%%
-%%%% Disconnect
-%%%%%%%%%%%%%%%
+%% Disconnect from server
 loop(St, disconnect) ->
      {ok, St} ;
 
-%%%%%%%%%%%%%%
-%%% Join
-%%%%%%%%%%%%%%
-loop(St,{join,_Channel}) ->
+% Join channel
+loop(St, {join, _Channel}) ->
     {ok, St} ;
 
-%%%%%%%%%%%%%%%
-%%%% Leave
-%%%%%%%%%%%%%%%
+%% Leave channel
 loop(St, {leave, _Channel}) ->
      {ok, St} ;
 
-%%%%%%%%%%%%%%%%%%%%%
-%%% Sending messages
-%%%%%%%%%%%%%%%%%%%%%
+% Sending messages
 loop(St, {msg_from_GUI, _Channel, _Msg}) ->
      {ok, St} ;
 
+%% Get current nick
+loop(St, whoami) ->
+    {"TODO", St} ;
 
-%%%%%%%%%%%%%%
-%%% WhoIam
-%%%%%%%%%%%%%%
-loop(St, whoiam) ->
-    {"user01", St} ;
-
-%%%%%%%%%%
-%%% Nick
-%%%%%%%%%%
-loop(St,{nick,_Nick}) ->
+%% Change nick
+loop(St, {nick, _Nick}) ->
     {ok, St} ;
 
-%%%%%%%%%%%%%
-%%% Debug
-%%%%%%%%%%%%%
-loop(St, debug) ->
-    {St, St} ;
-
-%%%%%%%%%%%%%%%%%%%%%
-%%%% Incoming message
-%%%%%%%%%%%%%%%%%%%%%
+%% Incoming message
 loop(St = #cl_st { gui = GUIName }, _MsgFromClient) ->
-    {Channel, Name, Msg} = decompose_msg(_MsgFromClient),
+    {incoming_msg, Channel, Name, Msg} = _MsgFromClient,
     gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
     {ok, St}.
-
-
-% This function will take a message from the client and
-% decomposed in the parts needed to tell the GUI to display
-% it in the right chat room.
-decompose_msg(_MsgFromClient) ->
-    {"", "", ""}.
-
-
-initial_state(Nick, GUIName) ->
-    #cl_st { gui = GUIName }.

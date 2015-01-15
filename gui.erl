@@ -50,8 +50,7 @@ do_init(Server) ->
 
     % If any of the name choosen above are taken at this point, everything crashes!
     register(to_atom(GUIName), self()),
-    genserver:start(to_atom(ClientName), client:initial_state("user01", GUIName),
-                    fun client:loop/2),
+    helper:start(to_atom(ClientName), client:initial_state("user01", GUIName), fun client:main/1),
 
     %% Starting GUI
     Frame = wxFrame:new(Server, -1, "Chat", []),
@@ -60,14 +59,13 @@ do_init(Server) ->
 
 
     %% Widgets: command line and system tab
-    Cmd  = wxTextCtrl:new(Panel, -1, [{value, ""},
- 				     {style, ?wxTE_PROCESS_ENTER}]),
+    Cmd  = wxTextCtrl:new(Panel, -1, [{value, ""}, {style, ?wxTE_PROCESS_ENTER}]),
     label(ClientID, ?CMDLINE, Cmd),
 
     Ntbk = wxAuiNotebook:new(Panel,[{style,?wxAUI_NB_DEFAULT_STYLE}]),
     label(ClientID, ?NOTEBOOK, Ntbk),
 
-    Tab = create_tab(ClientName, ?SYSTEM_NAME, "Welcome to CCHAT v. 0.1\n"),
+    Tab = create_tab(ClientName, ?SYSTEM_NAME, "Welcome to CCHAT v. 0.2"),
     label(ClientID, ?SYSTEM, Tab),
 
     %% Sizers
@@ -157,8 +155,8 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
                              end
             end ;
 
-         %% Who I am
-         whoiam -> Result = catch_fatal(ClientName, Panel, fun () -> request(ClientName, whoiam)  end),
+         %% Who am I?
+         whoami -> Result = catch_fatal(ClientName, Panel, fun () -> request(ClientName, whoami)  end),
                    case Result of
                         error -> ok ;
                         Nick  -> write_channel(with_label(ClientName, ?SYSTEM), "* "++"You are "++Nick)
@@ -169,6 +167,14 @@ handle_event(#wx{ event = #wxCommand{type = command_text_enter, cmdString = Item
                          case Result of
                               ok    -> write_channel( with_label(ClientName, ?SYSTEM),
                                                       "* "++"You are known now as "++Nick) ;
+                              error -> ok
+                         end ;
+
+         %% Ping someone
+         {ping, Nick} -> Result = catch_fatal(ClientName, Panel, fun () -> request(ClientName,{ping, Nick}) end ),
+                         case Result of
+                              ok    -> write_channel( with_label(ClientName, ?SYSTEM),
+                                                      "* "++"Ping "++Nick) ;
                               error -> ok
                          end ;
 
@@ -205,6 +211,11 @@ handle_call({msg_to_GUI, Channel, Msg}, _From, State = #state{ client = ClientNa
     write_channel( with_label(ClientName, channel_id(Channel)), Msg),
     {reply, ok, State} ;
 
+%% Here, the GUI receives a message to the system tab
+handle_call({msg_to_SYSTEM, Msg}, _From, State = #state{ client = ClientName }) ->
+    write_channel(with_label(ClientName, ?SYSTEM), "* "++Msg),
+    {reply, ok, State} ;
+
 handle_call(_Msg, _From, State) ->
     {reply, {error,nyi}, State}.
 
@@ -232,7 +243,7 @@ find_unique_name(Prefix,N) ->
 
 %% Debugging
 trace(Args) ->
-    io:format("~n~s"++lists:flatten(lists:duplicate(length(Args)-1,"~p")),Args).
+    io:format("~n~s"++lists:flatten(lists:duplicate(length(Args)-1,"~p~n")),Args).
 
 %% GUI
 clear_text(ID) ->
@@ -252,7 +263,7 @@ create_tab(ClientName, Title, Init) ->
     NtbkPanel = wxPanel:new(Ntbk, []),
     Msgs = wxTextCtrl:new(NtbkPanel, -1,
                            [{value, Init},
-	  		    {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+	  		    {style, ?wxTE_MULTILINE}]),
     wxTextCtrl:setEditable(Msgs, false),
     wxTextCtrl:setInsertionPointEnd(Msgs),
     NtbkSizer  = wxBoxSizer:new(?wxVERTICAL),
@@ -330,8 +341,7 @@ channel_id(ChannelName) ->
 
 %% Requests
 request(ClientName, Msg) ->
-    genserver:request(to_atom(ClientName), Msg, 100000). % must be greater than timeout in genserver
-
+    helper:request(to_atom(ClientName), Msg, 100000). % must be greater than default timeout
 
 %% Errors
 catch_fatal(ClientName, Panel, Cmd) ->

@@ -1,29 +1,32 @@
-all: gui client server cchat
+all: gui.beam helper.beam lexgrm.beam cchat.beam server.beam client.beam
 
-cchat:  cchat.erl server.beam gui.beam
-	erl -compile cchat.erl
-
-server: server.erl defs.hrl genserver
-	erl -compile server.erl
-
-client: client.erl defs.hrl lexgrm genserver
-	erl -compile client.erl
-
-gui: gui.erl genserver
+gui.beam: gui.erl helper.beam
 	erl -compile gui.erl
 
-genserver: genserver.erl
-	erl -compile genserver
+helper.beam: helper.erl
+	erl -compile helper.erl
 
-lexgrm : lex.xrl grm.yrl lexgrm.erl
-	 erl -compile lexgrm.erl
-	 erl -pa ebin -eval "lexgrm:start()" -noshell -detached
+lexgrm.beam : lexgrm.erl lex.erl grm.erl
+	erl -compile lex.erl
+	erl -compile grm.erl
+	erl -compile lexgrm.erl
+#	erl -pa ebin -eval "lexgrm:start()" -noshell -detached
+
+cchat.beam:  cchat.erl server.beam gui.beam
+	erl -compile cchat.erl
+
+server.beam: server.erl defs.hrl helper.beam
+	erl -compile server.erl
+
+client.beam: client.erl defs.hrl lexgrm.beam helper.beam
+	erl -compile client.erl
+
+# ----------------------------------------------------------------------------
 
 clean:
 	rm -f *.beam
 
-
-run_tests: tests all
+run_tests: all tests
 	erl +P 1000000 -eval "eunit:test(test_client), halt()"
 
 PERFTESTS = "[\
@@ -31,7 +34,7 @@ PERFTESTS = "[\
 {timeout, 60, {test,test_client,many_users_many_channels}}\
 ]"
 
-run_perf_tests: tests all
+run_perf_tests: all tests
 	echo "\n\033[32m=== Running with 4 cores === \033[0m\n"
 	erl -smp +S 4 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
 	echo "\n\033[32m=== Running with 2 cores === \033[0m\n"
@@ -39,7 +42,7 @@ run_perf_tests: tests all
 	echo "\n\033[32m=== Running with 1 core  === \033[0m\n"
 	erl -smp +S 1 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
 
-run_distributed_tests: tests all
+run_distributed_tests: all tests
 	-killall beam.smp 2>/dev/null
 	erl -name "testsuite@127.0.0.1" -eval "eunit:test(test_remote), halt()"
 
