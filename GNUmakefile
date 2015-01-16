@@ -6,13 +6,13 @@ gui.beam: gui.erl helper.beam
 helper.beam: helper.erl
 	erl -compile helper.erl
 
-lexgrm.beam : lexgrm.erl lex.erl grm.erl
+lexgrm.beam: lexgrm.erl lex.erl grm.erl
 	erl -compile lex.erl
 	erl -compile grm.erl
 	erl -compile lexgrm.erl
 #	erl -pa ebin -eval "lexgrm:start()" -noshell -detached
 
-cchat.beam:  cchat.erl server.beam gui.beam
+cchat.beam: cchat.erl server.beam gui.beam helper.beam
 	erl -compile cchat.erl
 
 server.beam: server.erl defs.hrl helper.beam
@@ -29,6 +29,9 @@ clean:
 run_tests: all tests
 	erl +P 1000000 -eval "eunit:test(test_client), halt()"
 
+run_ping_tests: all tests
+	erl +P 1000000 -eval "eunit:test({test,test_client,ping}), halt()"
+
 PERFTESTS = "[\
 {timeout, 60, {test,test_client,many_users_one_channel}},\
 {timeout, 60, {test,test_client,many_users_many_channels}}\
@@ -42,17 +45,17 @@ run_perf_tests: all tests
 	echo "\n\033[32m=== Running with 1 core  === \033[0m\n"
 	erl -smp +S 1 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
 
-run_distributed_tests: all tests
-	-killall beam.smp 2>/dev/null
-	erl -name "testsuite@127.0.0.1" -eval "eunit:test(test_remote), halt()"
+# run_distributed_tests: all tests
+# 	-killall beam.smp 2>/dev/null
+# 	erl -name "testsuite@127.0.0.1" -eval "eunit:test(test_remote), halt()"
 
-tests: test_client.beam test_remote.beam dummy_gui.beam
+tests: dummy_gui.beam test_client.beam # test_remote.beam
 
-test_client.beam : test_client.erl
+dummy_gui.beam: dummy_gui.erl
+	erl -compile dummy_gui.erl
+
+test_client.beam: test_client.erl
 	erl -compile test_client.erl
 
-test_remote.beam : test_remote.erl
-	erl -compile test_remote.erl
-
-dummy_gui.beam : dummy_gui.erl
-	erl -compile dummy_gui.erl
+# test_remote.beam: test_remote.erl
+# 	erl -compile test_remote.erl
