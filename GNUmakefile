@@ -6,11 +6,9 @@ gui.beam: gui.erl helper.beam
 helper.beam: helper.erl
 	erl -compile helper.erl
 
-lexgrm.beam: lexgrm.erl lex.erl grm.erl
-	erl -compile lex.erl
-	erl -compile grm.erl
+lexgrm.beam: lexgrm.erl lex.xrl grm.yrl
 	erl -compile lexgrm.erl
-#	erl -pa ebin -eval "lexgrm:start()" -noshell -detached
+	erl -pa ebin -eval "lexgrm:start()" -noshell -detached
 
 cchat.beam: cchat.erl server.beam gui.beam helper.beam
 	erl -compile cchat.erl
