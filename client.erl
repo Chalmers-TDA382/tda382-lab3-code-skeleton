@@ -21,31 +21,38 @@ initial_state(Nick, GUIName) ->
 
 %% Connect to server
 loop(St, {connect, _Server}) ->
-    {ok, St} ;
+    % {ok, St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Disconnect from server
 loop(St, disconnect) ->
-     {ok, St} ;
+    % {ok, St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 % Join channel
 loop(St, {join, _Channel}) ->
-    {ok, St} ;
+    % {ok, St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Leave channel
 loop(St, {leave, _Channel}) ->
-     {ok, St} ;
+    % {ok, St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 % Sending messages
 loop(St, {msg_from_GUI, _Channel, _Msg}) ->
-     {ok, St} ;
+    % {ok, St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Get current nick
 loop(St, whoami) ->
-    {"TODO", St} ;
+    % {"nick", St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Change nick
 loop(St, {nick, _Nick}) ->
-    {ok, St} ;
+    % {ok, St} ;
+    {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Incoming message
 loop(St = #cl_st { gui = GUIName }, _MsgFromClient) ->
