@@ -342,6 +342,39 @@ change_nick_test_DISABLED() ->
     % no_more_messages(),
     ok.
 
+% Changing nick
+change_nick_combined_test() ->
+    init("change_nick_combined"),
+    Channel = new_channel(),
+
+    % Client 1
+    {_Pid1, _Nick1, ClientAtom1} = new_client_connect(),
+    join_channel(ClientAtom1, Channel),
+
+    % Client 2
+    {_Pid2, Nick2, ClientAtom2} = new_client_connect(true),
+    join_channel(ClientAtom2, Channel),
+
+    % Change nick of 1
+    NewNick = find_unique_name("user_"),
+%    change_nick(ClientAtom1, NewNick),
+    Result = request(ClientAtom1, {nick,NewNick}),
+    case Result of
+        ok ->
+            % Client 1 writes to channel
+            % Make sure prompt in 2 reflects correct name
+            Message = find_unique_name("message_"),
+            send_message(ClientAtom1, Channel, Message),
+            receive_message(Channel, NewNick, Message),
+            % no_more_messages(),
+
+            % Change nick of 1 to 2
+            Result2 = request(ClientAtom1,{nick,Nick2}),
+            assert_error(to_string(ClientAtom1)++" changing nick to "++Nick2, Result2, nick_taken) ;
+
+        {error, user_already_connected, _} -> ok
+    end.
+
 % Ping test
 ping() ->
     init("ping"),
