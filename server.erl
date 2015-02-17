@@ -4,7 +4,7 @@
 
 main(State) ->
     % TODO: Receive message, handle it, and loop
-    ok.
+    not_implemented.
 
 initial_state(ServerName) ->
     #server_st{}.
