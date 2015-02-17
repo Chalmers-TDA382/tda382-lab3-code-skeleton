@@ -20,7 +20,7 @@ initial_state(Nick, GUIName) ->
 %% loop handles each kind of request from GUI
 
 %% Connect to server
-loop(St, {connect, _Server}) ->
+loop(St, {connect, Server}) ->
     % {ok, St} ;
     {{error, not_implemented, "Not implemented"}, St} ;
 
@@ -30,17 +30,17 @@ loop(St, disconnect) ->
     {{error, not_implemented, "Not implemented"}, St} ;
 
 % Join channel
-loop(St, {join, _Channel}) ->
+loop(St, {join, Channel}) ->
     % {ok, St} ;
     {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Leave channel
-loop(St, {leave, _Channel}) ->
+loop(St, {leave, Channel}) ->
     % {ok, St} ;
     {{error, not_implemented, "Not implemented"}, St} ;
 
 % Sending messages
-loop(St, {msg_from_GUI, _Channel, _Msg}) ->
+loop(St, {msg_from_GUI, Channel, Msg}) ->
     % {ok, St} ;
     {{error, not_implemented, "Not implemented"}, St} ;
 
@@ -50,12 +50,12 @@ loop(St, whoami) ->
     {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Change nick
-loop(St, {nick, _Nick}) ->
+loop(St, {nick, Nick}) ->
     % {ok, St} ;
     {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Incoming message
-loop(St = #cl_st { gui = GUIName }, _MsgFromClient) ->
-    {incoming_msg, Channel, Name, Msg} = _MsgFromClient,
+loop(St = #cl_st { gui = GUIName }, MsgFromClient) ->
+    {incoming_msg, Channel, Name, Msg} = MsgFromClient,
     gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
     {ok, St}.
