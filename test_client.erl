@@ -35,8 +35,9 @@ init(Name) ->
     putStrLn(blue("\n# Test: "++Name)),
     catch(unregister(?SERVERATOM)),
     InitState = server:initial_state(?SERVER),
-    Result = helper:start(?SERVERATOM, InitState, fun server:main/1),
-    assert("server startup", is_pid(Result)).
+    Pid = spawn_link(fun() -> server:main(InitState) end),
+    register(?SERVERATOM, Pid),
+    assert("server startup", is_pid(Pid)).
 
 % Start new GUI and register it as Name
 new_gui(Name) ->
