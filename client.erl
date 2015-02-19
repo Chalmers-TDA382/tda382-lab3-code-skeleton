@@ -55,7 +55,6 @@ loop(St, {nick, Nick}) ->
     {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Incoming message
-loop(St = #cl_st { gui = GUIName }, MsgFromClient) ->
-    {incoming_msg, Channel, Name, Msg} = MsgFromClient,
+loop(St = #cl_st { gui = GUIName }, {incoming_msg, Channel, Name, Msg}) ->
     gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
     {ok, St}.
