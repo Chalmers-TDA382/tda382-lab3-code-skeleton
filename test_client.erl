@@ -6,9 +6,10 @@
 -define(SERVERATOM, list_to_atom(?SERVER)).
 -define(MAX, 100000).
 
--define(PERF_1_USERS, 250).
+-define(PERF_1_USERS, 500).
 -define(PERF_2_USERS, 150).
 -define(PERF_2_CHANS, 100).
+-define(PERF_2_MSGS, 5).
 
 % --- Helpers ----------------------------------------------------------------
 
@@ -487,6 +488,7 @@ nick_taken_test_DISABLED() ->
 % many_users_one_channel_test_() ->
 %     {timeout, 60, [{test_client,many_users_one_channel}]}.
 
+% Tests that broadcasting is concurrent
 many_users_one_channel() ->
     init("many_users_one_channel"),
     Channel = new_channel(),
@@ -527,11 +529,13 @@ many_users_one_channel() ->
 % many_users_many_channels_test_() ->
 %     {timeout, 60, [{test_client,many_users_many_channels}]}.
 
+% Tests that channels are implemented concurrently
 many_users_many_channels() ->
     init("many_users_many_channels"),
     ParentPid = self(),
     ChansSeq = lists:seq(1, ?PERF_2_CHANS),
     UsersSeq = lists:seq(1, ?PERF_2_USERS),
+    MsgsSeq  = lists:seq(1, ?PERF_2_MSGS),
     F = fun (I) ->
                 fun () ->
                         output_off(),
@@ -547,8 +551,11 @@ many_users_many_channels() ->
                                     Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),
                                     Channel = "#channel_"++Ch_Ixs,
                                     join_channel(ClientAtom, Channel),
-                                    send_message(ClientAtom, Channel, "message_"++Is++"_1"),
-                                    send_message(ClientAtom, Channel, "message_"++Is++"_2"),
+                                    Send = fun (I) ->
+                                                   Is2 = lists:flatten(io_lib:format("~p", [I])),
+                                                   send_message(ClientAtom, Channel, "message_"++Is++"_"++Is2)
+                                           end,
+                                    lists:map(Send, MsgsSeq),
                                     leave_channel(ClientAtom, Channel),
                                     ok
                             end,
