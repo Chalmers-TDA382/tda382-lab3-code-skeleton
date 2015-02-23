@@ -3,9 +3,10 @@
 
 %% Spawn a process and register it with a given atom
 %% Function F should have arity 1
-start(Name, State, F) ->
+start(Atom, State, F) ->
     Pid = spawn(fun() -> apply(F, [State]) end),
-    register(Name, Pid),
+    catch(unregister(Atom)),
+    register(Atom, Pid),
     Pid.
 
 %% Send a request to a Pid and wait for a response
