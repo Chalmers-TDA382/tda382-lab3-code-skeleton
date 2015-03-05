@@ -1,6 +1,6 @@
 all: *.erl *.hrl lex.xrl grm.yrl
 	erl -compile *.erl
-	erl -pa ebin -eval "lexgrm:start()" -noshell -detached
+	erl -pa ebin -eval "lexgrm:start(), halt()" -noshell -detached
 
 clean:
 	rm -f *.beam
@@ -17,9 +17,9 @@ PERFTESTS = "[\
 ]"
 
 run_perf_tests: all
-	echo "\n\033[32m=== Running with 4 cores === \033[0m\n"
-	erl -smp +S 4 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
-	echo "\n\033[32m=== Running with 2 cores === \033[0m\n"
-	erl -smp +S 2 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
-	echo "\n\033[32m=== Running with 1 core  === \033[0m\n"
-	erl -smp +S 1 +P 1000000 -eval "eunit:test("$(PERFTESTS)"),halt()"
+	echo -e "\n\033[32m=== Running with 4 cores ===\033[0m"
+	erl -smp +S 4 +P 1000000 -noshell -eval "eunit:test("$(PERFTESTS)"),halt()"
+	echo -e "\n\033[32m=== Running with 2 cores ===\033[0m"
+	erl -smp +S 2 +P 1000000 -noshell -eval "eunit:test("$(PERFTESTS)"),halt()"
+	echo -e "\n\033[32m=== Running with 1 core  ===\033[0m"
+	erl -smp +S 1 +P 1000000 -noshell -eval "eunit:test("$(PERFTESTS)"),halt()"

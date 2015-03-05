@@ -11,6 +11,89 @@
 -define(PERF_2_CHANS, 100).
 -define(PERF_2_MSGS, 5).
 
+% --- Output -----------------------------------------------------------------
+
+% Turn output off/on
+is_output_off() ->
+    get(output) == off.
+output_off() ->
+    put(output,off).
+output_on() ->
+    put(output,on).
+
+putStrLn(S) ->
+    case get(output) of
+        off -> ok ;
+        _   -> io:fwrite(user, <<"~s~n">>, [S])
+    end.
+
+putStrLn(S1, S2) ->
+    putStrLn(io_lib:format(S1++"~n", S2)).
+sprintf(S1, S2) ->
+    lists:flatten(io_lib:format(S1, S2)).
+
+% To turn off colours, just use this function:
+% colour(Num,S) -> S.
+colour(Num,S) ->
+    "\033["++Num++"m"++S++"\033[0m".
+red(S) ->
+    colour("31",S).
+green(S) ->
+    colour("32",S).
+blue(S) ->
+    colour("34",S).
+gray(S) ->
+    colour("37",S).
+purple(S) ->
+    colour("35",S).
+
+% --- Helpers: assertions ----------------------------------------------------
+
+% Positive assertion, with error message
+assert(Message, Condition) ->
+    Pfx = Message++": ",
+    case (catch(?assert(Condition))) of
+        {'EXIT', _Ex} ->
+            Msg = Pfx++red("Fail"),
+            case get(output) of
+                off -> throw(Msg) ;
+                _   -> putStrLn(Msg), throw("Test failed")
+            end ;
+        _ -> putStrLn(Pfx++green("Ok"))
+    end.
+assert(Message, X, Y) ->
+    Pfx = Message++": ",
+    case (catch(?assertEqual(Y, X))) of
+        {'EXIT', _Ex} ->
+            Msg = Pfx++red("Fail")++
+                  sprintf("~nExpected: ~p~n     Got: ~p~n", [Y,X]),
+            case get(output) of
+                off -> throw(Msg) ;
+                _   -> putStrLn(Msg), throw("Test failed")
+            end ;
+        _ -> putStrLn(Pfx++green("Ok"))
+    end.
+assert_ok(X) ->
+    ?assertEqual(ok, X).
+assert_ok(Message, X) ->
+    assert(Message, X, ok).
+
+% Assert for particular error message
+assert_error(Result, Atom) ->
+    ?assertMatch({error, Atom, _}, Result).
+assert_error(Message, Result, Atom) ->
+    Pfx = Message++" fails: ",
+    case (catch(assert_error(Result, Atom))) of
+        {'EXIT', _Ex} ->
+            Msg = Pfx++red("Passes")++
+                  sprintf("~nExpected: {error,~p,_}~n     Got: ~p~n", [Atom,Result]),
+            case get(output) of
+                off -> throw(Msg) ;
+                _   -> putStrLn(Msg), throw("Test failed")
+            end ;
+        _ -> putStrLn(Pfx++green("Ok"))
+    end.
+
 % --- Helpers ----------------------------------------------------------------
 
 % Our own version of helper:request without a timeout
@@ -42,6 +125,7 @@ init(Name) ->
 
 % Start new GUI and register it as Name
 new_gui(Name) ->
+    catch(unregister(list_to_atom(Name))),
     {ok, Pid} = dummy_gui:start_link(Name,self()),
     Pid.
 
@@ -148,72 +232,6 @@ no_more_messages() ->
 % Get a new channel name
 new_channel() ->
     find_unique_name("#channel_").
-
-% Positive assertion, with error message
-assert(Message, Condition) ->
-    Pfx = Message++": ",
-    case (catch(?assert(Condition))) of
-        {'EXIT', Ex} -> putStrLn(Pfx++red("Fail")), throw(Ex) ;
-        _            -> putStrLn(Pfx++green("Ok"))
-    end.
-assert(Message, X, Y) ->
-    Pfx = Message++": ",
-    case (catch(?assert(X =:= Y))) of
-        {'EXIT', _Ex} ->
-            putStrLn(Pfx++red("Fail")),
-            putStrLn("Expected: ~p~nGot: ~p", [Y,X]),
-            % throw(Ex) ;
-            notok ;
-        _ -> putStrLn(Pfx++green("Ok"))
-    end.
-assert_ok(Message, X) ->
-    assert(Message, X, ok).
-
-% Assert for particular error message
-assert_error(Result, Atom) ->
-    ?assert((element(1,Result) =:= error) and (element(2,Result) =:= Atom)).
-assert_error(Message, Result, Atom) ->
-    Pfx = Message++" fails: ",
-    case (catch(assert_error(Result, Atom))) of
-        {'EXIT', _Ex} ->
-            putStrLn(Pfx++red("Passes")),
-            putStrLn("Expected error: ~p~nGot: ~p", [Atom,Result]),
-            % throw(Ex) ;
-            notok ;
-        _ -> putStrLn(Pfx++green("Ok"))
-    end.
-
-% --- Output -----------------------------------------------------------------
-
-% Turn output off/on
-output_off() ->
-    put(output,off).
-output_on() ->
-    put(output,on).
-
-putStrLn(S) ->
-    case get(output) of
-        off -> ok ;
-        _   -> io:fwrite(user, <<"~s~n">>, [S])
-    end.
-
-putStrLn(S1, S2) ->
-    putStrLn(io_lib:format(S1++"~n", S2)).
-
-% To turn off colours, just use this function:
-% colour(Num,S) -> S.
-colour(Num,S) ->
-    "\033["++Num++"m"++S++"\033[0m".
-red(S) ->
-    colour("31",S).
-green(S) ->
-    colour("32",S).
-blue(S) ->
-    colour("34",S).
-gray(S) ->
-    colour("37",S).
-purple(S) ->
-    colour("35",S).
 
 % --- Good unit tests --------------------------------------------------------
 
@@ -495,6 +513,7 @@ many_users_one_channel() ->
     ParentPid = self(),
     F = fun (I) ->
                 fun () ->
+                    try
                         output_off(),
                         Is = lists:flatten(io_lib:format("~p", [I])),
                         % {Pid, Nick, ClientAtom} = new_client("user_"++I),
@@ -504,27 +523,33 @@ many_users_one_channel() ->
                         GUIName = "gui_perf1_"++Is,
                         new_gui(GUIName),
                         helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
+                        T1 = now(),
                         connect(ClientAtom),
                         join_channel(ClientAtom, Channel),
                         send_message(ClientAtom, Channel, "message_"++Is++"_1"),
                         send_message(ClientAtom, Channel, "message_"++Is++"_2"),
                         leave_channel(ClientAtom, Channel),
                         disconnect(ClientAtom),
-                        ParentPid ! ready,
-                        ok
+                        T2 = now(),
+                        ParentPid ! {ready, timer:now_diff(T2, T1)}
+                    catch Ex ->
+                        ParentPid ! {failed, Ex}
+                    end
                 end
         end,
     Seq = lists:seq(1, ?PERF_1_USERS),
-    Spawn = fun (I) -> spawn_link(F(I)) end,
-    Recv  = fun (_) -> receive ready -> ok end end,
+    Spawn = fun (I) -> spawn(F(I)) end,
+    Recv  = fun (_) ->
+                    receive
+                        {ready, Time} -> Time ;
+                        {failed, Ex} -> putStrLn(Ex),
+                                        throw("")
+                    end
+            end,
     putStrLn("spawning ~p clients, each connecting to 1 channel...", [?PERF_1_USERS]),
-    T1 = now(),
-    lists:map(Spawn, Seq),
-    lists:map(Recv, Seq),
-    T2 = now(),
-    Time = timer:now_diff(T2, T1),
-    putStrLn(red("time elapsed: ~p ms"), [Time/1000]),
-    ok.
+    spawn(fun() -> lists:foreach(Spawn, Seq) end),
+    Times = lists:map(Recv, Seq),
+    summary(Times).
 
 % many_users_many_channels_test_() ->
 %     {timeout, 60, [{test_client,many_users_many_channels}]}.
@@ -538,21 +563,23 @@ many_users_many_channels() ->
     MsgsSeq  = lists:seq(1, ?PERF_2_MSGS),
     F = fun (I) ->
                 fun () ->
+                    try
                         output_off(),
-                        Is = lists:flatten(io_lib:format("~p", [I])),
+                        Is = lists:flatten(integer_to_list(I)),
                         Nick = "user_perf2_"++Is,
                         ClientName = "client_perf2_"++Is,
                         ClientAtom = list_to_atom(ClientName),
                         GUIName = "gui_perf2_"++Is,
                         new_gui(GUIName),
                         helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
+                        T1 = now(),
                         connect(ClientAtom),
                         G = fun(Ch_Ix) ->
                                     Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),
                                     Channel = "#channel_"++Ch_Ixs,
                                     join_channel(ClientAtom, Channel),
-                                    Send = fun (I) ->
-                                                   Is2 = lists:flatten(io_lib:format("~p", [I])),
+                                    Send = fun (I2) ->
+                                                   Is2 = lists:flatten(io_lib:format("~p", [I2])),
                                                    send_message(ClientAtom, Channel, "message_"++Is++"_"++Is2)
                                            end,
                                     lists:map(Send, MsgsSeq),
@@ -561,17 +588,29 @@ many_users_many_channels() ->
                             end,
                         lists:foreach(G, ChansSeq),
                         disconnect(ClientAtom),
-                        ParentPid ! ready,
-                        ok
+                        T2 = now(),
+                        ParentPid ! {ready, timer:now_diff(T2, T1)}
+                    catch Ex ->
+                        ParentPid ! {failed, Ex}
+                    end
                 end
         end,
-    Spawn = fun (I) -> spawn_link(F(I)) end,
-    Recv  = fun (_) -> receive ready -> ok end end,
+    Spawn = fun (I) -> spawn(F(I)) end,
+    Recv  = fun (_) ->
+                    receive
+                        {ready, Time} -> Time ;
+                        {failed, Ex} -> putStrLn(Ex),
+                                        throw("")
+                    end
+            end,
     putStrLn("spawning ~p clients, each connecting to ~p channels...", [?PERF_2_USERS, ?PERF_2_CHANS]),
-    T1 = now(),
-    lists:map(Spawn, UsersSeq),
-    lists:map(Recv, UsersSeq),
-    T2 = now(),
-    Time = timer:now_diff(T2, T1),
-    putStrLn(red("time elapsed: ~p ms"), [Time/1000]),
-    ok.
+    spawn(fun() -> lists:foreach(Spawn, UsersSeq) end),
+    Times = lists:map(Recv, UsersSeq),
+    summary(Times).
+
+summary(MTimes) ->
+    Times = lists:map(fun(X) -> X/1000 end, MTimes),
+    Tot = lists:sum(Times),
+    Avg = Tot / length(Times),
+    Med = lists:nth(length(Times) div 2, lists:sort(Times)),
+    putStrLn(red("Time elapsed: ~wms average / ~wms median"), [round(Avg), round(Med)]).
