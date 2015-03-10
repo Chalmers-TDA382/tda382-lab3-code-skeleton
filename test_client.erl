@@ -196,11 +196,6 @@ disconnect(ClientAtom) ->
     Result = request(ClientAtom,disconnect),
     assert_ok(to_string(ClientAtom)++" disconnects from server", Result).
 
-% Send ping
-send_ping(ClientAtom, Nick) ->
-    Result = request(ClientAtom, {ping,Nick}),
-    assert_ok(to_string(ClientAtom)++" pings "++Nick, Result).
-
 % Send a message from GUI to client and assert it succeeded
 send_message(ClientAtom, Channel, Message) ->
     Result = request(ClientAtom, {msg_from_GUI,Channel,Message}),
@@ -390,11 +385,17 @@ ping() ->
     % Client 1
     {_Pid1, _Nick1, _ClientAtom1} = new_client_connect(true),
 
+    % Send ping to non-existent user
+    BadNick = "smeagol",
+    Result1 = request(_ClientAtom1, {ping,BadNick}),
+    assert_error(to_string(_ClientAtom1)++" pings "++BadNick, Result1, user_not_found),
+
     % Client 2
     {_Pid2, _Nick2, _ClientAtom2} = new_client_connect(),
 
     % Send ping from 1 to 2
-    send_ping(_ClientAtom1, _Nick2),
+    Result2 = request(_ClientAtom1, {ping,_Nick2}),
+    assert_ok(to_string(_ClientAtom1)++" pings "++_Nick2, Result2),
 
     % Make sure pong is received
     % Don't check message format, since students may change it
@@ -608,6 +609,8 @@ many_users_many_channels() ->
     Times = lists:map(Recv, UsersSeq),
     summary(Times).
 
+% Display timing summary for perf tests
+% Input: list of client times in microseconds
 summary(MTimes) ->
     Times = lists:map(fun(X) -> X/1000 end, MTimes),
     Tot = lists:sum(Times),
