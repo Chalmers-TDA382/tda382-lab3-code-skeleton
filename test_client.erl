@@ -117,10 +117,8 @@ to_string(X) ->
 init(Name) ->
     ?assert(compile:file(server) =:= {ok,server}),
     putStrLn(blue("\n# Test: "++Name)),
-    catch(unregister(?SERVERATOM)),
     InitState = server:initial_state(?SERVER),
-    Pid = spawn_link(fun() -> server:main(InitState) end),
-    register(?SERVERATOM, Pid),
+    Pid = genserver:start(?SERVERATOM, InitState, fun server:loop/2),
     assert("server startup", is_pid(Pid)).
 
 % Start new GUI and register it as Name
@@ -151,7 +149,7 @@ new_client(Nick) ->
 new_client(Nick, GUIName) ->
     ClientName = find_unique_name("client_"),
     ClientAtom = list_to_atom(ClientName),
-    Pid = helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
+    Pid = genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
     {Pid, Nick, ClientAtom}.
 
 % Start a new client and connect to server
@@ -523,7 +521,7 @@ many_users_one_channel() ->
                         ClientAtom = list_to_atom(ClientName),
                         GUIName = "gui_perf1_"++Is,
                         new_gui(GUIName),
-                        helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
+                        genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
                         T1 = now(),
                         connect(ClientAtom),
                         join_channel(ClientAtom, Channel),
@@ -572,7 +570,7 @@ many_users_many_channels() ->
                         ClientAtom = list_to_atom(ClientName),
                         GUIName = "gui_perf2_"++Is,
                         new_gui(GUIName),
-                        helper:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:main/1),
+                        genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
                         T1 = now(),
                         connect(ClientAtom),
                         G = fun(Ch_Ix) ->

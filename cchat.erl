@@ -6,7 +6,7 @@
 %% Start a server
 server() ->
     Server = "shire",
-    helper:start(list_to_atom(Server), server:initial_state(Server), fun server:main/1).
+    genserver:start(list_to_atom(Server), server:initial_state(Server), fun server:loop/2).
 
 %% Start a client GUI
 client() ->

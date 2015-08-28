@@ -50,7 +50,7 @@ do_init(Server) ->
 
     % If any of the name choosen above are taken at this point, everything crashes!
     register(to_atom(GUIName), self()),
-    helper:start(to_atom(ClientName), client:initial_state("user01", GUIName), fun client:main/1),
+    genserver:start(to_atom(ClientName), client:initial_state("user01", GUIName), fun client:loop/2),
 
     %% Starting GUI
     Frame = wxFrame:new(Server, -1, "Chat", []),
@@ -341,7 +341,7 @@ channel_id(ChannelName) ->
 
 %% Requests
 request(ClientName, Msg) ->
-    helper:request(to_atom(ClientName), Msg, 100000). % must be greater than default timeout
+    genserver:request(to_atom(ClientName), Msg, 100000). % must be greater than default timeout
 
 %% Errors
 catch_fatal(ClientName, Panel, Cmd) ->

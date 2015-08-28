@@ -1,19 +1,10 @@
 -module(client).
--export([main/1, initial_state/2]).
+-export([loop/2, initial_state/2]).
 -include_lib("./defs.hrl").
-
-%% Receive messages from GUI and handle them accordingly
-main(State) ->
-    receive
-        {request, From, Ref, Request} ->
-            {Response, NextState} = loop(State, Request),
-            From ! {result, Ref, Response},
-            main(NextState)
-    end.
 
 %% Produce initial state
 initial_state(Nick, GUIName) ->
-    #cl_st { gui = GUIName }.
+    #client_st { gui = GUIName }.
 
 %% ---------------------------------------------------------------------------
 
@@ -55,6 +46,6 @@ loop(St, {nick, Nick}) ->
     {{error, not_implemented, "Not implemented"}, St} ;
 
 %% Incoming message
-loop(St = #cl_st { gui = GUIName }, {incoming_msg, Channel, Name, Msg}) ->
+loop(St = #client_st { gui = GUIName }, {incoming_msg, Channel, Name, Msg}) ->
     gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
     {ok, St}.

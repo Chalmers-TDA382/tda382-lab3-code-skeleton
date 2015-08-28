@@ -1,9 +1,9 @@
 % This record defines the structure of the client process.
+% Add whatever other fields you need.
 % It contains the following fields:
 %   gui: the name (or Pid) of the GUI process.
--record(cl_st, {gui}).
+-record(client_st, {gui}).
 
 % This record defines the structure of the server process.
-% It contains the following fields:
-%
+% Add whatever other fields you need.
 -record(server_st, {}).
