@@ -6,10 +6,13 @@ clean:
 	rm -f *.beam
 
 run_tests: all
-	erl +P 1000000 -eval "eunit:test(test_client), halt()"
+	erl +P 1000000 -noshell -eval "eunit:test(test_client), halt()"
 
 run_ping_tests: all
-	erl +P 1000000 -eval "eunit:test({test,test_client,ping}), halt()"
+	erl +P 1000000 -noshell -eval "eunit:test({test,test_client,ping}), halt()"
+
+run_robustness_tests: all
+	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,robustness}}), halt()"
 
 PERFTESTS = "[\
 {timeout, 60, {test,test_client,many_users_one_channel}},\
@@ -17,9 +20,9 @@ PERFTESTS = "[\
 ]"
 
 run_perf_tests: all
-	echo -e "\n\033[32m=== Running with 4 cores ===\033[0m"
-	erl -smp +S 4 +P 1000000 -noshell -eval "eunit:test("$(PERFTESTS)"),halt()"
-	echo -e "\n\033[32m=== Running with 2 cores ===\033[0m"
-	erl -smp +S 2 +P 1000000 -noshell -eval "eunit:test("$(PERFTESTS)"),halt()"
-	echo -e "\n\033[32m=== Running with 1 core  ===\033[0m"
-	erl -smp +S 1 +P 1000000 -noshell -eval "eunit:test("$(PERFTESTS)"),halt()"
+	erl +P 1000000 -noshell -eval "eunit:test("${PERFTESTS}"), halt()"
+
+run_distributed_tests: all
+	-killall beam.smp 2>/dev/null
+#	erl -name "testsuite@127.0.0.1" -eval "eunit:test(test_remote), halt()"
+	erl -noshell -name "testsuite@127.0.0.1" -setcookie dchat -eval "eunit:test(test_remote), halt()"

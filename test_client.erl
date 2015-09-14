@@ -6,7 +6,8 @@
 -define(SERVERATOM, list_to_atom(?SERVER)).
 -define(MAX, 100000).
 
--define(PERF_1_USERS, 500).
+-define(PERF_1_USERS, 100).
+
 -define(PERF_2_USERS, 150).
 -define(PERF_2_CHANS, 100).
 -define(PERF_2_MSGS, 5).
@@ -28,7 +29,7 @@ putStrLn(S) ->
     end.
 
 putStrLn(S1, S2) ->
-    putStrLn(io_lib:format(S1++"~n", S2)).
+    putStrLn(io_lib:format(S1, S2)).
 sprintf(S1, S2) ->
     lists:flatten(io_lib:format(S1, S2)).
 
@@ -412,6 +413,7 @@ ping() ->
 % Connecting to incorrect server
 connect_wrong_server_test() ->
     init("connect_wrong_server"),
+    putStrLn("Wait a few seconds for timeout..."),
     {_Pid, _Nick, ClientAtom} = new_client(),
     Result = request(ClientAtom, {connect, "mordor"}),
     assert_error("connecting to server mordor", Result, server_not_reached).
@@ -500,11 +502,108 @@ nick_taken_test_DISABLED() ->
     Result = request(ClientAtom1,{nick,Nick2}),
     assert_error(to_string(ClientAtom1)++" changing nick to "++Nick2, Result, nick_taken).
 
+% --- Concurrency unit tests -------------------------------------------------
+
+robustness_test_() ->
+    {timeout, 10, [{test_client,robustness}]}.
+
+-define(CONC_CHANS, 4).
+-define(CONC_USERS, 3). % per channel
+-define(CONC_MSGS, 2). % per user
+
+%    ch1       ch2       ch3
+%   / | \     / | \     / | \
+% u1 u2 u3  u4 u5 u6  u7 u8 u9
+robustness() ->
+  MinUsers = (?CONC_CHANS - 1) * ?CONC_USERS, % all users on failed channel timeout
+  MaxUsers = (?CONC_CHANS * ?CONC_USERS), % no users on failed channel timeout
+  NMsgs = ?CONC_CHANS * ?CONC_USERS * ?CONC_MSGS,
+  random:seed(erlang:now()),
+  SleepN = random:uniform(NMsgs - (?CONC_MSGS + 1)), % if NMsgs == 24, then SleepN must be max 21
+
+  % The sleepy process will tell request #SleepN to sleep
+  % Everyone else can continue
+  Sleepy = fun (F, N) ->
+    receive
+      {hi, Pid} ->
+        if
+          (N == SleepN) ->
+            Pid ! {wait, 500000}; % ms
+          true ->
+            Pid ! {go}
+        end
+    end,
+    F(F, N+1)
+  end,
+  catch(unregister(sleepy)),
+  register(sleepy, spawn(fun () -> Sleepy(Sleepy, 1) end)),
+
+  init("robustness"),
+  ParentPid = self(),
+  UsersSeq = lists:seq(1, ?CONC_USERS * ?CONC_CHANS),
+  MsgsSeq  = lists:seq(1, ?CONC_MSGS),
+
+  % Everyone joins their channel
+  F = fun (I) ->
+    fun () ->
+      try
+        output_off(),
+        Is = lists:flatten(integer_to_list(I)),
+        Nick = "user_conc_"++Is,
+        ClientName = "client_conc_"++Is,
+        ClientAtom = list_to_atom(ClientName),
+        GUIName = "gui_conc_"++Is,
+        new_gui(GUIName),
+        genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
+        connect(ClientAtom),
+
+        Ch_Ix = (I rem ?CONC_CHANS) + 1,
+        Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),
+        Channel = "#channel_"++Ch_Ixs,
+        join_channel(ClientAtom, Channel),
+
+        % send all messages
+        Send = fun (I2) ->
+          Is2 = lists:flatten(io_lib:format("~p", [I2])),
+          Msg = "message_"++Is++"_"++Is2,
+          request(ClientAtom, {msg_from_GUI,Channel,Msg})
+        end,
+        spawn(fun () ->
+          % timer:sleep(500), % give time for all channels to set up?
+          lists:foreach(Send, MsgsSeq),
+          ParentPid ! {ready, Is}
+        end)
+
+        % disconnect(ClientAtom),
+      catch Ex ->
+        ParentPid ! {failed, Ex}
+      end
+    end
+  end,
+  Spawn = fun (I) -> spawn(F(I)) end,
+  Recv  = fun (_) ->
+    receive
+      {ready, _} -> ok ;
+      {failed, Ex} -> putStrLn(Ex), throw("FAILED")
+    after 500 ->
+      timeout
+    end
+  end,
+  putStrLn("spawning ~p channels × ~p clients × ~p messages each (message ~p of ~p will block)", [?CONC_CHANS, ?CONC_USERS, ?CONC_MSGS, SleepN, NMsgs]),
+  spawn(fun() -> lists:foreach(Spawn, UsersSeq) end),
+  Resps = lists:map(Recv, UsersSeq),
+  Oks = lists:filter(fun (I) -> I == ok end, Resps),
+  Timeouts = lists:filter(fun (I) -> I == timeout end, Resps),
+  putStrLn("clients: ~p successful, ~p timed out, ~p total", [length(Oks), length(Timeouts), length(Resps)]),
+  Cond = (length(Oks) >= MinUsers) and (length(Oks) < MaxUsers),
+  Msg = sprintf("successful clients is between ~p and ~p", [MinUsers, MaxUsers-1]),
+  assert(Msg, Cond).
+
 % --- Performance unit tests -------------------------------------------------
 
 % many_users_one_channel_test_() ->
 %     {timeout, 60, [{test_client,many_users_one_channel}]}.
-
+%
 % Tests that broadcasting is concurrent
 many_users_one_channel() ->
     init("many_users_one_channel"),

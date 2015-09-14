@@ -1,5 +1,5 @@
 -module(genserver).
--export([start/3, request/2, request/3, requestAsync/2, update/2, timeSince/1]).
+-export([start/3, request/2, request/3, requestAsync/2, update/2, timeSince/1, maybeWait/0]).
 
 %% Spawn a process and register it with a given atom
 %% Function F should have arity 1
@@ -61,3 +61,17 @@ update(Pid, Fun) ->
 %% Returns time since TimeStamp in milliseconds (ms)
 timeSince(TimeStamp) ->
   timer:now_diff(now(), TimeStamp) / 1000.
+
+%% If process sleepy exists, ask her if we should sleep
+maybeWait() ->
+  case whereis(sleepy) of
+    undefined -> ok ;
+    Pid ->
+      Pid ! {hi, self()},
+      receive
+        {wait, N} -> timer:sleep(N) ;
+        {go} -> ok
+      after 100 ->
+        ok
+      end
+  end.
