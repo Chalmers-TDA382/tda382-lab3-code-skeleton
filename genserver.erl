@@ -1,5 +1,5 @@
 -module(genserver).
--export([start/3, request/2, request/3, requestAsync/2, update/2, timeSince/1, maybeWait/0]).
+-export([start/3, request/2, request/3, requestAsync/2, update/2, timeSince/1]).
 
 %% Spawn a process and register it with a given atom
 %% Function F should have arity 1
@@ -34,6 +34,7 @@ request(Pid, Data) ->
 %% Send a request to a Pid and wait for a response
 %% With a specified timeout
 request(Pid, Data, Timeout) ->
+  maybeWait(Pid),
   Ref = make_ref(),
   Pid!{request, self(), Ref, Data},
   receive
@@ -47,6 +48,7 @@ request(Pid, Data, Timeout) ->
 
 %% Send a request to a Pid without waiting
 requestAsync(Pid, Data) ->
+  maybeWait(Pid),
   Ref = make_ref(),
   Pid!{request, self(), Ref, Data}.
 
@@ -63,11 +65,11 @@ timeSince(TimeStamp) ->
   timer:now_diff(now(), TimeStamp) / 1000.
 
 %% If process sleepy exists, ask her if we should sleep
-maybeWait() ->
+maybeWait(ToPid) ->
   case whereis(sleepy) of
     undefined -> ok ;
     Pid ->
-      Pid ! {hi, self()},
+      Pid ! {hi, ToPid, self()},
       receive
         {wait, N} -> timer:sleep(N) ;
         {go} -> ok

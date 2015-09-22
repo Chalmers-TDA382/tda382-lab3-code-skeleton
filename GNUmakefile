@@ -14,6 +14,9 @@ run_ping_tests: all
 run_robustness_tests: all
 	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,robustness}}), halt()"
 
+run_concurrency_tests: all
+	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,process_usage_test}}), halt()"
+
 PERFTESTS = "[\
 {timeout, 60, {test,test_client,many_users_one_channel}},\
 {timeout, 60, {test,test_client,many_users_many_channels}}\
