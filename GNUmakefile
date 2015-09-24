@@ -12,7 +12,8 @@ run_ping_tests: all
 	erl +P 1000000 -noshell -eval "eunit:test({test,test_client,ping}), halt()"
 
 run_robustness_tests: all
-	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,robustness}}), halt()"
+	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,robustness_channel}}), halt()"
+	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,robustness_server}}), halt()"
 
 run_concurrency_tests: all
 	erl +P 1000000 -noshell -eval "eunit:test({timeout, 10, {test,test_client,process_usage_test}}), halt()"
