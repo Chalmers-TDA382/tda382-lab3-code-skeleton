@@ -555,7 +555,7 @@ robustness_channel() ->
   UsersSeq = lists:seq(1, ?CONC_1_USERS * ?CONC_1_CHANS),
   MsgsSeq  = lists:seq(1, ?CONC_1_MSGS),
 
-  % Everyone joins their channel
+  % Connect, join channel, send messages
   F = fun (I) ->
     fun () ->
       try
@@ -631,7 +631,7 @@ robustness_server() ->
   UsersSeq = lists:seq(1, ?CONC_3_USERS * ?CONC_3_CHANS),
   MsgsSeq  = lists:seq(1, ?CONC_3_MSGS),
 
-  % Everyone joins their channel
+  % Connect and join channel
   Fjoin = fun (I) ->
     try
       output_off(),
@@ -678,7 +678,7 @@ robustness_server() ->
   assert("killing server", Killed),
 
   putStrLn("sending messages"),
-  spawn(fun() -> lists:foreach(fun (I) -> spawn(fun() -> Fsend(I) end) end, ClientAtoms) end),
+  lists:foreach(fun (I) -> spawn(fun() -> Fsend(I) end) end, ClientAtoms),
 
   % Receive all pending messages
   Recv = fun (Fn, N) ->

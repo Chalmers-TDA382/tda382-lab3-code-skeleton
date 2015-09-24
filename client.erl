@@ -12,6 +12,11 @@ initial_state(Nick, GUIName) ->
 
 %% Connect to server
 loop(St, {connect, Server}) ->
+    Data = "hello?",
+    io:fwrite("Client is sending: ~p~n", [Data]),
+    ServerAtom = list_to_atom(Server),
+    Response = genserver:request(ServerAtom, Data),
+    io:fwrite("Client received: ~p~n", [Response]),
     % {ok, St} ;
     {{error, not_implemented, "Not implemented"}, St} ;
 

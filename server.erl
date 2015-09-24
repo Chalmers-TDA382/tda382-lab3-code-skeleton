@@ -8,5 +8,8 @@ initial_state(ServerName) ->
 
 %% ---------------------------------------------------------------------------
 
-loop(St, Message) ->
-    {not_implemented, St}.
+loop(St, Request) ->
+    io:fwrite("Server received: ~p~n", [Request]),
+    Response = "hi!",
+    io:fwrite("Server is sending: ~p~n", [Response]),
+    {Response, St}.
