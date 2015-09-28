@@ -555,44 +555,53 @@ robustness_channel() ->
   UsersSeq = lists:seq(1, ?CONC_1_USERS * ?CONC_1_CHANS),
   MsgsSeq  = lists:seq(1, ?CONC_1_MSGS),
 
-  % Connect, join channel, send messages
-  F = fun (I) ->
-    fun () ->
-      try
-        output_off(),
-        Is = lists:flatten(integer_to_list(I)),
-        Nick = "user_conc1_"++Is,
-        ClientName = "client_conc1_"++Is,
-        ClientAtom = list_to_atom(ClientName),
-        GUIName = "gui_conc1_"++Is,
-        new_gui(GUIName, ParentPid),
-        ClientPid = genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
-        sleepy ! {add_client, ClientPid},
-        connect(ClientAtom),
+  % Connect and join channel
+  Fjoin = fun (I) ->
+    try
+      output_off(),
+      Is = lists:flatten(integer_to_list(I)),
+      Nick = "user_conc1_"++Is,
+      ClientName = "client_conc1_"++Is,
+      ClientAtom = list_to_atom(ClientName),
+      GUIName = "gui_conc1_"++Is,
+      new_gui(GUIName, ParentPid),
+      ClientPid = genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
+      sleepy ! {add_client, ClientPid},
+      connect(ClientAtom),
 
-        Ch_Ix = (I rem ?CONC_1_CHANS) + 1,
-        Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),
-        Channel = "#channel_"++Ch_Ixs,
-        join_channel(ClientAtom, Channel),
+      Ch_Ix = (I rem ?CONC_1_CHANS) + 1,
+      Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),
+      Channel = "#channel_"++Ch_Ixs,
+      join_channel(ClientAtom, Channel),
+      {ClientAtom, Channel}
+    catch Ex ->
+      ParentPid ! {failed, Ex} % ignored
+    end
+  end,
 
-        % send all messages
-        Send = fun (I2) ->
-          Is2 = lists:flatten(io_lib:format("~p", [I2])),
-          Msg = "message_"++Is++"_"++Is2,
-          request(ClientAtom, {msg_from_GUI,Channel,Msg})
-        end,
-        spawn(fun () ->
-          lists:foreach(Send, MsgsSeq),
-          ParentPid ! {ready, Is} % ignored
-        end)
-      catch Ex ->
-        ParentPid ! {failed, Ex} % ignored
-      end
+  % Send messages
+  Fsend = fun ({ClientAtom,Channel}) ->
+    try
+      % send all messages
+      Send = fun (I2) ->
+        Is2 = lists:flatten(io_lib:format("~p", [I2])),
+        Msg = "message_"++Is2,
+        request(ClientAtom, {msg_from_GUI,Channel,Msg})
+      end,
+      spawn(fun () ->
+        lists:foreach(Send, MsgsSeq),
+        ParentPid ! {ready, ClientAtom} % ignored
+      end),
+      ClientAtom
+    catch Ex ->
+      ParentPid ! {failed, Ex} % ignored
     end
   end,
   putStrLn("spawning ~p channels x ~p clients x ~p messages each (~p of ~p requests will block)", [?CONC_1_CHANS, ?CONC_1_USERS, ?CONC_1_MSGS, SleepCount, NRecvs]),
-  Spawn = fun (I) -> spawn(F(I)) end,
-  spawn(fun() -> lists:foreach(Spawn, UsersSeq) end),
+  ClientAtoms = lists:map(Fjoin, UsersSeq),
+  output_on(),
+
+  lists:foreach(fun (I) -> spawn(fun() -> Fsend(I) end) end, ClientAtoms),
 
   % Receive all pending messages
   Recv = fun (Fn, N) ->
@@ -664,7 +673,7 @@ robustness_server() ->
       end,
       spawn(fun () ->
         lists:foreach(Send, MsgsSeq),
-        ParentPid ! {ready, ClientAtom} % ignore
+        ParentPid ! {ready, ClientAtom} % ignored
       end)
     catch Ex ->
       ParentPid ! {failed, Ex} % ignored
