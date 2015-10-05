@@ -414,13 +414,24 @@ ping() ->
 
 % --- Bad unit tests ---------------------------------------------------------
 
-% Connecting to incorrect server
-connect_wrong_server_test() ->
-    init("connect_wrong_server"),
+% Connecting to non-existent server
+connect_nonexistent_server_test() ->
+    init("connect_nonexistent_server"),
     putStrLn("Wait a few seconds for timeout..."),
     {_Pid, _Nick, ClientAtom} = new_client(),
     Result = request(ClientAtom, {connect, "mordor"}),
     assert_error("connecting to server mordor", Result, server_not_reached).
+
+% Connecting to non-responding server
+connect_nonresponding_server_test() ->
+    Name = "connect_nonresponding_server",
+    putStrLn(blue("\n# Test: "++Name)),
+    Pid = genserver:start(?SERVERATOM, {}, fun (St, Msg) -> timer:sleep(100000), {dead, St} end), %% blocking server
+    assert("server startup", is_pid(Pid)),
+    putStrLn("Wait a few seconds for timeout..."),
+    {_Pid, _Nick, ClientAtom} = new_client(),
+    Result = request(ClientAtom, {connect, ?SERVER}),
+    assert_error("connecting to non-responsive server", Result, server_not_reached).
 
 % Logging in with a name that is taken
 connect_registered_nick_test() ->
