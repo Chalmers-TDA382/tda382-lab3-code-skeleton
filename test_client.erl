@@ -211,7 +211,7 @@ receive_message(Channel, Nick, Message) ->
             assert("channel matches", From, Channel),
             assert("message matches", Msg, Nick++"> "++Message)
     after
-        500 ->
+        5000 ->
             putStrLn(red("nothing received")),
             ?assert(false)
     end.
@@ -223,7 +223,7 @@ no_more_messages() ->
             putStrLn(red("there are unreceived messages")),
             ?assert(false)
     after
-        500 ->
+        1000 ->
             assert("no more messages", true)
     end.
 
@@ -426,7 +426,7 @@ connect_nonexistent_server_test() ->
 connect_nonresponding_server_test() ->
     Name = "connect_nonresponding_server",
     putStrLn(blue("\n# Test: "++Name)),
-    Pid = genserver:start(?SERVERATOM, {}, fun (St, Msg) -> timer:sleep(100000), {dead, St} end), %% blocking server
+    Pid = genserver:start(?SERVERATOM, {}, fun (St, _Msg) -> timer:sleep(100000), {dead, St} end), %% blocking server
     assert("server startup", is_pid(Pid)),
     putStrLn("Wait a few seconds for timeout..."),
     {_Pid, _Nick, ClientAtom} = new_client(),

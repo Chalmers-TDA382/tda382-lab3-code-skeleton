@@ -4,20 +4,9 @@
 -compile(export_all).
 -define(SERVER,"server").
 -define(SERVERATOM, list_to_atom(?SERVER)).
--define(SERVERNODE, 'nodeS@127.0.0.1').
+-define(SERVERNODENAME, 'srv').
 -define(HOST, '127.0.0.1').
-
-% It is assumed that is called at the beginning of each test case (only)
-init(Name) ->
-    ?assert(compile:file(server) =:= {ok,server}),
-    putStrLn(blue("\n# Test: "++Name)),
-    InitState = server:initial_state(?SERVER),
-%    Result1 = slave:start(?HOST, 'nodeS'),
-    Result1 = slave:start(?HOST, 'nodeS', "-setcookie dchat"),
-    assert_ok("start server node", element(1,Result1)),
-    Result2 = spawn(?SERVERNODE, genserver, start, [?SERVERATOM, InitState, fun server:loop/2]),
-    assert("server startup", is_pid(Result2)).
-
+-define(SERVERNODE, 'srv@127.0.0.1').
 
 % --- Re-use helpers from test_client ----------------------------------------
 
@@ -34,6 +23,16 @@ assert_ok(Message, X) -> test_client:assert_ok(Message, X).
 assert_error(Result, Atom) -> test_client:assert_error(Result, Atom).
 assert_error(Message, Result, Atom) -> test_client:assert_error(Message, Result, Atom).
 
+% It is assumed that is called at the beginning of each test case (only)
+init(Name) ->
+    ?assert(compile:file(server) =:= {ok,server}),
+    putStrLn(blue("\n# Test: "++Name)),
+    InitState = server:initial_state(?SERVER),
+    Result1 = slave:start(?HOST, ?SERVERNODENAME, "-setcookie dchat"),
+    assert_ok("start server node "++atom_to_list(?SERVERNODE), element(1,Result1)),
+    Result2 = remote_start(?SERVERNODE, [?SERVERATOM, InitState, fun server:loop/2]),
+    assert("server startup", is_pid(Result2)).
+
 % Start a new client
 new_client() ->
     Nick = test_client:find_unique_name("user_"),
@@ -48,13 +47,12 @@ new_client(Nick) ->
 new_client(Nick, GUIName) ->
     ClientName = test_client:find_unique_name("client_"),
     ClientAtom = list_to_atom(ClientName),
-%    Result = slave:start(?HOST, ClientAtom),
     Result = slave:start(?HOST, ClientAtom, "-setcookie dchat"),
-    assert_ok("start client node "++ClientName, element(1,Result)),
+    assert_ok("start client node "++ClientName++"@"++atom_to_list(?HOST), element(1,Result)),
     ClientNode = element(2,Result),
 
     InitState = client:initial_state(Nick, GUIName),
-    Result2 = spawn(ClientNode, genserver, start, [ClientAtom, InitState, fun client:loop/2]),
+    Result2 = remote_start(ClientNode, [ClientAtom, InitState, fun client:loop/2]),
     assert("client startup "++ClientName, is_pid(Result2)),
 
     {Nick, ClientAtom, ClientNode}.
@@ -62,8 +60,7 @@ new_client(Nick, GUIName) ->
 % Start a new client and connect to server
 new_client_connect() ->
     {Nick, ClientAtom, ClientNode} = new_client(),
-    timer:sleep(300),
-    Result  = test_client:request({ClientAtom, ClientNode}, {connect, {?SERVER, atom_to_list(?SERVERNODE)}}),
+    Result = test_client:request({ClientAtom, ClientNode}, {connect, {?SERVER, atom_to_list(?SERVERNODE)}}),
     assert_ok(atom_to_list(ClientNode)++" connects to server as "++Nick, Result),
     {Nick, ClientAtom, ClientNode}.
 
@@ -74,7 +71,6 @@ new_client_connect(GUI) ->
             Nick = test_client:find_unique_name("user_"),
             GUIName = test_client:find_unique_name("gui_"),
             {Nick, ClientAtom, ClientNode} = new_client(Nick, GUIName),
-            timer:sleep(300),
             Result = test_client:request({ClientAtom, ClientNode}, {connect, {?SERVER, atom_to_list(?SERVERNODE)}}),
             assert_ok(atom_to_list(ClientNode)++" connects to server as "++Nick, Result),
             new_gui(ClientNode, GUIName),
@@ -83,16 +79,32 @@ new_client_connect(GUI) ->
         _ -> new_client_connect()
     end.
 
+% Start genserver server on remote node and wait for it
+remote_start(Node, Args) ->
+  ParentPid = self(),
+  spawn(Node, fun() ->
+    Pid = apply(genserver, start, Args),
+    ParentPid ! {spawned, Pid}
+  end),
+  receive
+    {spawned, Pid} -> Pid
+  end.
+
 % Start new GUI and register it as Name
 new_gui(Node, GUIName) ->
-    Me = self(),
-    Pid = spawn(Node, dummy_gui, start_link, [GUIName,Me]),
-    Pid.
+  Me = self(),
+  spawn(Node, fun() ->
+    Pid = apply(dummy_gui, start_link, [GUIName, Me]),
+    Me ! {spawned, Pid}
+  end),
+  receive
+    {spawned, Pid} -> Pid
+  end.
 
 % --- Distributed tests ------------------------------------------------------
 
-one_client_test() ->
-    init("one_client"),
+one_channel_test() ->
+    init("one_channel"),
     Channel = test_client:new_channel(),
 
     % Client 1
