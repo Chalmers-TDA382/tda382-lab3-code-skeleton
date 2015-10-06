@@ -533,7 +533,7 @@ robustness_channel_test_() ->
 % u1 u2 u3  u4 u5 u6  u7 u8 u9
 robustness_channel() ->
   NRecvs = ?CONC_1_CHANS * ?CONC_1_USERS * (?CONC_1_USERS - 1) * ?CONC_1_MSGS, % sent to clients
-  random:seed(erlang:now()),
+  random:seed(os:timestamp()),
   SleepCount = random:uniform(NRecvs div 4), % how many will sleep
   SleepNs = lists:usort([random:uniform(NRecvs) || _ <- lists:seq(1, SleepCount)]),
 
