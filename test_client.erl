@@ -795,14 +795,14 @@ many_users_one_channel() ->
                         GUIName = "gui_perf1_"++Is,
                         new_gui(GUIName),
                         genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
-                        T1 = now(),
+                        T1 = os:timestamp(),
                         connect(ClientAtom),
                         join_channel(ClientAtom, Channel),
                         send_message(ClientAtom, Channel, "message_"++Is++"_1"),
                         send_message(ClientAtom, Channel, "message_"++Is++"_2"),
                         leave_channel(ClientAtom, Channel),
                         disconnect(ClientAtom),
-                        T2 = now(),
+                        T2 = os:timestamp(),
                         ParentPid ! {ready, timer:now_diff(T2, T1)}
                     catch Ex ->
                         ParentPid ! {failed, Ex}
@@ -844,7 +844,7 @@ many_users_many_channels() ->
                         GUIName = "gui_perf2_"++Is,
                         new_gui(GUIName),
                         genserver:start(ClientAtom, client:initial_state(Nick, GUIName), fun client:loop/2),
-                        T1 = now(),
+                        T1 = os:timestamp(),
                         connect(ClientAtom),
                         G = fun(Ch_Ix) ->
                                     Ch_Ixs = lists:flatten(io_lib:format("~p", [Ch_Ix])),
@@ -860,7 +860,7 @@ many_users_many_channels() ->
                             end,
                         lists:foreach(G, ChansSeq),
                         disconnect(ClientAtom),
-                        T2 = now(),
+                        T2 = os:timestamp(),
                         ParentPid ! {ready, timer:now_diff(T2, T1)}
                     catch Ex ->
                         ParentPid ! {failed, Ex}
