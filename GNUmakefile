@@ -3,7 +3,7 @@ all: *.erl *.hrl lex.xrl grm.yrl
 	erl -pa ebin -eval "lexgrm:start(), halt()" -noshell -detached
 
 clean:
-	rm -f *.beam
+	rm -f *.beam grm.erl lex.erl
 
 run_tests: all
 	erl +P 1000000 -noshell -eval "eunit:test(test_client), halt()"
